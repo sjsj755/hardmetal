@@ -17,7 +17,12 @@
 ## 目录结构
 
 ```
+scripts/
+└── dev-env.ps1             # 当前会话的 JDK 25 / Maven 3.9.16 环境
+
 backend/
+├── mvnw / mvnw.cmd         # Maven Wrapper（固定 Maven 3.9.16）
+├── .mvn/wrapper/           # Wrapper 配置
 └── src/main/java/com/hardmetal/export/
     ├── ExportApplication.java
     ├── shared/                 # 共享能力
@@ -60,10 +65,35 @@ interfaces/     REST 控制器与请求 / 响应对象
 
 ## 构建与运行
 
+先加载当前会话的 JDK 25 / Maven 3.9.16 环境（只影响当前 PowerShell，不改系统全局变量）：
+
+```powershell
+. .\scripts\dev-env.ps1
+```
+
+如果提示“未对文件进行数字签名”，先对当前 PowerShell 进程放开执行策略（只影响本窗口）：
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+. .\scripts\dev-env.ps1
+```
+
+构建与启动：
+
+```powershell
+cd backend
+.\mvnw.cmd -DskipTests package
+java -jar target\hardmetal-export-backend-0.0.1-SNAPSHOT.jar
+```
+
+`backend\mvnw.cmd`（Linux/macOS 用 `backend/mvnw`）把 Maven 固定为 3.9.16，首次运行会把发行包下载到 `%USERPROFILE%\.m2\wrapper\dists`。Wrapper 只负责 Maven，JDK 25 仍由 `dev-env.ps1` 的 `JAVA_HOME` 提供。
+
+如果不想加载脚本，也可以显式指定：
+
 ```powershell
 $env:JAVA_HOME='D:\java\java-25'
-& 'D:\java\develop\maven\apache-maven-3.9.16\bin\mvn.cmd' -f backend/pom.xml -DskipTests package
-& 'D:\java\java-25\bin\java.exe' -jar backend/target/hardmetal-export-backend-0.0.1-SNAPSHOT.jar
+cd backend
+.\mvnw.cmd -DskipTests package
 ```
 
 启动后：
