@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>硬质合金出口系统 · 联调控制台</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --line: #e3e6ea; --ink: #1f2328; --muted: #6b7280;
+    --accent: #c2410c; --ok: #15803d; --bad: #b91c1c;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.55 "Inter", "Microsoft YaHei", system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+  header { display: flex; align-items: center; gap: 16px; padding: 12px 20px; background: var(--card); border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 16px; margin: 0; }
+  header .pill { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #fff7ed; color: var(--accent); }
+  header .who { margin-left: auto; font-size: 13px; color: var(--muted); }
+  main { max-width: 1120px; margin: 20px auto; padding: 0 16px; display: grid; gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .card h2 { font-size: 14px; margin: 0 0 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
+  input, select { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 7px; background: #fff; min-width: 130px; }
+  input.wide { min-width: 240px; }
+  button { font: inherit; padding: 8px 14px; border-radius: 7px; border: 1px solid transparent; cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; }
+  button.ghost { background: #fff; border-color: var(--line); }
+  button.danger { background: #fff; border-color: #fecaca; color: var(--bad); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 500; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: #fffaf5; }
+  pre { margin: 0; background: #0f172a; color: #e2e8f0; padding: 12px; border-radius: 8px; overflow: auto; max-height: 340px; font-size: 12px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+  .tabs button { background: #fff; border: 1px solid var(--line); }
+  .tabs button.on { border-color: var(--accent); color: var(--accent); }
+  .hidden { display: none !important; }
+  .log { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .badge { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #eef2f6; color: var(--muted); }
+  .err { color: var(--bad); }
+  .ok { color: var(--ok); }
+  .grid2 { display: grid; grid-template-columns: 1.15fr .85fr; gap: 16px; }
+  @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>硬质合金刀具出口系统</h1>
+  <span class="pill">联调控制台 · 非正式界面</span>
+  <span class="who" id="who">未登录</span>
+  <button class="ghost" id="btnLogout" disabled>退出登录</button>
+</header>
+
+<main>
+  <section class="card" id="loginCard">
+    <h2>登录</h2>
+    <div class="row">
+      <label>账号<input id="username" value="admin" autocomplete="username"></label>
+      <label>密码<input id="password" type="password" value="Admin@2026" autocomplete="current-password"></label>
+      <button class="primary" id="btnLogin">登录</button>
+      <span class="log" id="loginMsg">演示账号：admin / Admin@2026（业务员：sales1 / Admin@2026）</span>
+    </div>
+  </section>
+
+  <section id="app" class="hidden">
+    <div class="tabs">
+      <button data-tab="list" class="on">客户列表</button>
+      <button data-tab="create">新建客户</button>
+      <button data-tab="detail">客户详情</button>
+      <button data-tab="raw">请求记录</button>
+    </div>
+
+    <!-- 列表 -->
+    <section class="card view" id="view-list">
+      <h2>客户列表</h2>
+      <div class="row" style="margin-bottom:12px">
+        <label>类型
+          <select id="fType"><option value="">全部</option><option>end_user</option><option>distributor</option><option>agent</option><option>oem</option></select>
+        </label>
+        <label>等级
+          <select id="fLevel"><option value="">全部</option><option>A</option><option>B</option><option>C</option><option>D</option></select>
+        </label>
+        <label>关键词<input id="fKeyword" placeholder="编码 / 中文名 / 英文名"></label>
+        <button class="primary" id="btnList">查询</button>
+      </div>
+      <table>
+        <thead><tr><th>ID</th><th>编码</th><th>中文名</th><th>类型</th><th>等级</th><th>国家</th><th>订单数</th><th>最近下单</th></tr></thead>
+        <tbody id="listBody"><tr><td colspan="8" class="log">登录后点「查询」</td></tr></tbody>
+      </table>
+      <div class="log" id="listMeta"></div>
+    </section>
+
+    <!-- 新建 -->
+    <section class="card view hidden" id="view-create">
+      <h2>新建客户</h2>
+      <div class="row">
+        <label>客户编码<input id="cCode" placeholder="如 DE-0007" class="wide"></label>
+        <label>中文名称<input id="cNameCn" class="wide"></label>
+        <label>英文名称<input id="cNameEn" class="wide"></label>
+        <label>客户类型
+          <select id="cType"><option>end_user</option><option>distributor</option><option>agent</option><option>oem</option></select>
+        </label>
+        <label>等级
+          <select id="cLevel"><option>A</option><option selected>B</option><option>C</option><option>D</option></select>
+        </label>
+        <label>国家码<input id="cCountry" value="DE" maxlength="2"></label>
+        <label>币种<input id="cCurrency" value="EUR" maxlength="3"></label>
+        <label>账期(天)<input id="cCreditDays" type="number" value="30" min="0" max="365"></label>
+        <label>加工材料<input id="cMaterials" class="wide" placeholder="stainless,superalloy"></label>
+        <label>加工工序<input id="cOps" class="wide" placeholder="turning,milling"></label>
+        <label>机床品牌<input id="cBrands" class="wide" placeholder="DMG Mori,Hermle"></label>
+        <label>对标品牌<input id="cBench" placeholder="Sandvik"></label>
+        <label>付款条件<input id="cPay" class="wide" placeholder="30% T/T in advance"></label>
+        <button class="primary" id="btnCreate">创建</button>
+      </div>
+      <div class="log" id="createMsg"></div>
+    </section>
+
+    <!-- 详情 -->
+    <section class="card view hidden" id="view-detail">
+      <h2>客户详情 <span class="badge" id="detailId"></span></h2>
+      <div class="row" style="margin-bottom:12px">
+        <label>客户 ID<input id="dId" type="number" placeholder="点列表某行自动填入"></label>
+        <button class="primary" id="btnDetail">加载</button>
+        <button class="ghost" id="btnTimeline">时间轴</button>
+        <button class="danger" id="btnDelete">删除该客户</button>
+      </div>
+      <div class="grid2">
+        <div>
+          <h2 style="margin-top:0">详情 JSON</h2>
+          <pre id="detailJson">尚未加载</pre>
+        </div>
+        <div>
+          <h2 style="margin-top:0">联系人</h2>
+          <div class="row">
+            <label>姓名<input id="ctName" value="Thomas Mueller"></label>
+            <label>职位<input id="ctPos" value="purchasing"></label>
+            <button class="ghost" id="btnAddContact">添加</button>
+          </div>
+          <pre id="contactsJson" style="margin-top:10px">-</pre>
+          <h2>时间轴</h2>
+          <pre id="timelineJson">点「时间轴」加载</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- 原始记录 -->
+    <section class="card view hidden" id="view-raw">
+      <h2>请求记录（最近 20 次）</h2>
+      <pre id="rawLog">暂无</pre>
+    </section>
+  </section>
+
+  <section class="card">
+    <h2>使用说明</h2>
+    <div class="log">
+      本页由后端静态托管，仅用于前后端联调，不属于正式界面，也不写入接口契约。
+      令牌保存在 sessionStorage，关闭标签页即丢弃。接口手册见
+      <a href="/dev/api.html">接口手册</a>（按 tag 分组、可搜索、可直接试调；同样只用本机 8081 实例），
+      需要原始 OpenAPI 时用 <a href="/swagger-ui/index.html" target="_blank">Swagger UI</a>。
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  const state = { accessToken: "", refreshToken: "", user: null, calls: [] };
+  const $ = (id) => document.getElementById(id);
+  const base = "";
+
+  function saveSession() {
+    sessionStorage.setItem("hm.session", JSON.stringify({
+      accessToken: state.accessToken, refreshToken: state.refreshToken, user: state.user
+    }));
+  }
+  function loadSession() {
+    try {
+      const raw = sessionStorage.getItem("hm.session");
+      if (!raw) return false;
+      Object.assign(state, JSON.parse(raw));
+      return !!state.accessToken;
+    } catch (e) { return false; }
+  }
+  function clearSession() {
+    state.accessToken = ""; state.refreshToken = ""; state.user = null;
+    sessionStorage.removeItem("hm.session");
+  }
+
+  async function api(method, path, body) {
+    const headers = { "Accept": "application/json" };
+    if (body !== undefined) headers["Content-Type"] = "application/json; charset=utf-8";
+    if (state.accessToken) headers["Authorization"] = "Bearer " + state.accessToken;
+    const started = performance.now();
+    const res = await fetch(base + "/api/v1" + path, {
+      method, headers, body: body === undefined ? undefined : JSON.stringify(body)
+    });
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch (e) { }
+    const entry = {
+      at: new Date().toLocaleTimeString(),
+      method, path, status: res.status, ms: Math.round(performance.now() - started),
+      code: json ? json.code : null, traceId: json ? json.traceId : null,
+      msg: json ? json.msg : null
+    };
+    state.calls.unshift(entry);
+    state.calls = state.calls.slice(0, 20);
+    renderRaw();
+    if (res.status === 401 && state.refreshToken && path !== "/auth/refresh") {
+      const ok = await tryRefresh();
+      if (ok) return api(method, path, body);
+    }
+    if (!res.ok) {
+      const err = new Error((json && json.msg) || ("HTTP " + res.status));
+      err.payload = json; err.status = res.status;
+      throw err;
+    }
+    return json;
+  }
+
+  async function tryRefresh() {
+    try {
+      const r = await fetch(base + "/api/v1/auth/refresh", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken: state.refreshToken })
+      });
+      const j = await r.json();
+      if (!r.ok || !j.data) { logoutLocal("登录已过期，请重新登录"); return false; }
+      state.accessToken = j.data.accessToken;
+      state.refreshToken = j.data.refreshToken;
+      saveSession();
+      return true;
+    } catch (e) { logoutLocal("刷新令牌失败，请重新登录"); return false; }
+  }
+
+  function renderWho() {
+    const u = state.user;
+    $("who").textContent = u ? (u.realName || u.username) + " · " + u.roleCode : "未登录";
+    $("btnLogout").disabled = !u;
+    $("loginCard").classList.toggle("hidden", !!u);
+    $("app").classList.toggle("hidden", !u);
+  }
+  function renderRaw() {
+    $("rawLog").textContent = state.calls.map((c) =>
+      `${c.at}  ${c.method} ${c.path}  → ${c.status}  code=${c.code}  ${c.ms}ms  trace=${c.traceId || "-"}  ${c.msg || ""}`
+    ).join("\n") || "暂无";
+  }
+  function showErr(el, e) {
+    el.innerHTML = '<span class="err">✗ ' + (e.message || "失败") + "</span>" +
+      (e.payload && e.payload.code ? ' <span class="badge">code=' + e.payload.code + "</span>" : "") +
+      (e.payload && e.payload.traceId ? ' <span class="badge">trace=' + e.payload.traceId + "</span>" : "");
+  }
+  function showOk(el, msg) { el.innerHTML = '<span class="ok">✓ ' + msg + "</span>"; }
+  function csv(v) {
+    return v.split(",").map((s) => s.trim()).filter(Boolean);
+  }
+
+  // tabs
+  document.querySelectorAll(".tabs button").forEach((b) => {
+    b.addEventListener("click", () => {
+      document.querySelectorAll(".tabs button").forEach((x) => x.classList.remove("on"));
+      b.classList.add("on");
+      document.querySelectorAll(".view").forEach((v) => v.classList.add("hidden"));
+      $("view-" + b.dataset.tab).classList.remove("hidden");
+    });
+  });
+
+  // login
+  $("btnLogin").addEventListener("click", async () => {
+    const msg = $("loginMsg");
+    msg.textContent = "登录中…";
+    try {
+      const r = await api("POST", "/auth/login", {
+        username: $("username").value.trim(), password: $("password").value
+      });
+      state.accessToken = r.data.accessToken;
+      state.refreshToken = r.data.refreshToken;
+      state.user = r.data.user;
+      saveSession();
+      renderWho();
+      msg.textContent = "登录成功，权限点 " + (state.user.perms || []).length + " 个。";
+      await loadList();
+    } catch (e) { showErr(msg, e); }
+  });
+
+  $("btnLogout").addEventListener("click", async () => {
+    try { await api("POST", "/auth/logout", { refreshToken: state.refreshToken }); } catch (e) { }
+    logoutLocal("已退出登录");
+  });
+  function logoutLocal(msg) {
+    clearSession(); renderWho();
+    $("loginMsg").textContent = msg;
+    $("listBody").innerHTML = '<tr><td colspan="8" class="log">未登录</td></tr>';
+  }
+
+  // list
+  async function loadList() {
+    const p = new URLSearchParams({ page: "1", size: "20" });
+    if ($("fType").value) p.set("type", $("fType").value);
+    if ($("fLevel").value) p.set("level", $("fLevel").value);
+    if ($("fKeyword").value.trim()) p.set("keyword", $("fKeyword").value.trim());
+    try {
+      const r = await api("GET", "/customers?" + p.toString());
+      const rows = r.data.items || [];
+      $("listBody").innerHTML = rows.length === 0
+        ? '<tr><td colspan="8" class="log">暂无数据</td></tr>'
+        : rows.map((c) => `<tr data-id="${c.id}">
+            <td>${c.id}</td><td>${c.code || ""}</td><td>${c.nameCn || ""}</td>
+            <td>${c.customerType || ""}</td><td>${c.level || ""}</td><td>${c.countryCode || ""}</td>
+            <td>${c.orderCount ?? 0}</td><td>${c.lastOrderAt || "-"}</td></tr>`).join("");
+      $("listMeta").textContent = `共 ${r.data.total} 条，第 ${r.data.page} 页，每页 ${r.data.size}`;
+      document.querySelectorAll("#listBody tr[data-id]").forEach((tr) => {
+        tr.addEventListener("click", () => {
+          $("dId").value = tr.dataset.id;
+          document.querySelector('.tabs button[data-tab="detail"]').click();
+          loadDetail();
+        });
+      });
+    } catch (e) { showErr($("listMeta"), e); }
+  }
+  $("btnList").addEventListener("click", loadList);
+
+  // create
+  $("btnCreate").addEventListener("click", async () => {
+    const msg = $("createMsg");
+    const body = {
+      code: $("cCode").value.trim(),
+      nameCn: $("cNameCn").value.trim(),
+      nameEn: $("cNameEn").value.trim(),
+      customerType: $("cType").value,
+      level: $("cLevel").value,
+      countryCode: $("cCountry").value.trim().toUpperCase(),
+      currency: $("cCurrency").value.trim().toUpperCase(),
+      creditDays: Number($("cCreditDays").value),
+      machiningMaterials: csv($("cMaterials").value),
+      machiningOps: csv($("cOps").value),
+      machineBrands: csv($("cBrands").value),
+      benchmarkBrand: $("cBench").value.trim(),
+      paymentTerms: $("cPay").value.trim()
+    };
+    try {
+      const r = await api("POST", "/customers", body);
+      showOk(msg, `创建成功：id=${r.data.id} 编码=${r.data.code}`);
+      $("dId").value = r.data.id;
+      await loadList();
+    } catch (e) { showErr(msg, e); }
+  });
+
+  // detail
+  async function loadDetail() {
+    const id = Number($("dId").value);
+    if (!id) { $("detailJson").textContent = "先填客户 ID"; return; }
+    try {
+      const r = await api("GET", "/customers/" + id);
+      $("detailId").textContent = "id=" + id;
+      $("detailJson").textContent = JSON.stringify(r.data, null, 2);
+      $("contactsJson").textContent = JSON.stringify(r.data.contacts || [], null, 2);
+    } catch (e) {
+      $("detailJson").textContent = "✗ " + e.message + (e.payload ? "\n" + JSON.stringify(e.payload, null, 2) : "");
+    }
+  }
+  $("btnDetail").addEventListener("click", loadDetail);
+
+  $("btnAddContact").addEventListener("click", async () => {
+    const id = Number($("dId").value);
+    if (!id) { $("contactsJson").textContent = "先填客户 ID"; return; }
+    try {
+      await api("POST", `/customers/${id}/contacts`, {
+        name: $("ctName").value.trim(), position: $("ctPos").value.trim(), isDecisionMaker: true
+      });
+      await loadDetail();
+    } catch (e) { $("contactsJson").textContent = "✗ " + e.message; }
+  });
+
+  $("btnTimeline").addEventListener("click", async () => {
+    const id = Number($("dId").value);
+    if (!id) { $("timelineJson").textContent = "先填客户 ID"; return; }
+    try {
+      const r = await api("GET", `/customers/${id}/timeline`);
+      $("timelineJson").textContent = JSON.stringify(r.data.items || [], null, 2);
+    } catch (e) { $("timelineJson").textContent = "✗ " + e.message; }
+  });
+
+  $("btnDelete").addEventListener("click", async () => {
+    const id = Number($("dId").value);
+    if (!id || !confirm("确认删除客户 " + id + "？有未结报价或订单时会被拒绝。")) return;
+    try {
+      await api("DELETE", "/customers/" + id);
+      $("detailJson").textContent = "已删除 id=" + id;
+      await loadList();
+    } catch (e) {
+      $("detailJson").textContent = "✗ " + e.message + (e.payload ? "\n" + JSON.stringify(e.payload, null, 2) : "");
+    }
+  });
+
+  if (loadSession()) { renderWho(); loadList(); } else { renderWho(); }
+})();
+</script>
+</body>
+</html>

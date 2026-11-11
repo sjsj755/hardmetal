@@ -25,6 +25,8 @@ logs/
 # Local scratch files
 .probe.txt
 .sandbox-test.txt
+# 本地调试临时目录：日志、PID、curl 响应（含 accessToken）、Edge 临时配置，绝不入库
+.tmp/
 
 # 本地设计文档，不入库（README 除外）
 /外贸业务流程调研报告.md

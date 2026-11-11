@@ -100,6 +100,21 @@ cd backend
 
 - 健康检查与接口文档：`http://127.0.0.1:8080/swagger-ui/index.html`
 - OpenAPI JSON：`http://127.0.0.1:8080/v3/api-docs`
+- 联调控制台（登录 + 客户增删查，纯静态页）：`http://127.0.0.1:8080/dev/console.html`
+- 接口手册（按 tag 分组、可搜索、带字段说明与“试一试”，读 `/v3/api-docs` 渲染）：`http://127.0.0.1:8080/dev/api.html`
+
+演示账号：`admin / Admin@2026`（管理员），`sales1 / Admin@2026`（业务员，只能看自己名下客户）。
+
+## 接口冒烟测试
+
+后端跑起来以后，可在仓库根目录执行：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\api-smoke.ps1
+```
+
+脚本会跑登录/刷新/登出、客户 CRUD、权限隔离、统一错误码等 29 项断言，默认打 `http://127.0.0.1:8081/api/v1`，
+可用 `-Base http://127.0.0.1:8080/api/v1` 指向其他实例。
 
 ## 数据库迁移
 

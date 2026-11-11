@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>接口手册 · 硬质合金刀具出口系统</title>
+<!--
+  本地联调用的接口手册：直接读取 /v3/api-docs 渲染，不依赖 Swagger UI。
+  仅供开发期查看与试调，不属于正式界面，也不写入接口契约。
+  上线前连同 static/dev 一起删除即可。
+-->
+<style>
+  :root {
+    --bg: #f7f8fa; --panel: #fff; --line: #e3e6ea; --ink: #1f2328; --muted: #6b7280;
+    --accent: #1f6feb; --get: #0969da; --post: #1a7f37; --put: #9a6700; --del: #cf222e;
+    --patch: #8250df; --code-bg: #f3f4f6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.6 "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+  header { display: flex; align-items: center; gap: 16px; padding: 10px 18px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 15px; margin: 0; white-space: nowrap; }
+  #q { flex: 0 1 320px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+  header .spacer { flex: 1; }
+  .who { color: var(--muted); font-size: 13px; }
+  a { color: var(--accent); text-decoration: none; }
+  .layout { display: flex; align-items: flex-start; }
+  aside { width: 340px; flex: 0 0 340px; height: calc(100vh - 49px); overflow: auto; border-right: 1px solid var(--line); background: var(--panel); padding: 8px 0 40px; }
+  main { flex: 1; min-width: 0; padding: 20px 28px 60px; }
+  .tag { padding: 10px 18px 4px; font-size: 12px; color: var(--muted); letter-spacing: .04em; }
+  .item { display: flex; gap: 8px; align-items: baseline; padding: 6px 18px; cursor: pointer; border-left: 3px solid transparent; }
+  .item:hover { background: #f2f5f9; }
+  .item.on { background: #eef4ff; border-left-color: var(--accent); }
+  .item .p { font-family: Consolas, ui-monospace, monospace; font-size: 12.5px; word-break: break-all; }
+  .item .s { color: var(--muted); font-size: 12px; }
+  .m { font: 600 11px/1.4 Consolas, monospace; padding: 1px 5px; border-radius: 4px; color: #fff; flex: 0 0 auto; }
+  .m.get { background: var(--get); } .m.post { background: var(--post); }
+  .m.put { background: var(--put); } .m.delete { background: var(--del); } .m.patch { background: var(--patch); }
+  h2 { font-size: 20px; margin: 0 0 6px; }
+  .line { font-family: Consolas, ui-monospace, monospace; font-size: 14px; margin-bottom: 14px; }
+  .desc { color: #374151; margin: 0 0 16px; white-space: pre-wrap; }
+  h3 { font-size: 13px; color: var(--muted); text-transform: none; margin: 22px 0 8px; letter-spacing: .02em; }
+  table { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #fafbfc; font-weight: 600; color: #444; }
+  tr:last-child td { border-bottom: 0; }
+  code, .mono { font-family: Consolas, ui-monospace, monospace; font-size: 12.5px; }
+  code { background: var(--code-bg); padding: 1px 4px; border-radius: 4px; }
+  .req { color: var(--del); font-weight: 700; }
+  .opt { color: var(--muted); }
+  details { margin: 8px 0; }
+  summary { cursor: pointer; color: var(--accent); }
+  pre { background: #0f172a; color: #e2e8f0; padding: 12px 14px; border-radius: 6px; overflow: auto; font-size: 12.5px; line-height: 1.5; max-height: 420px; }
+  .try { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-top: 24px; }
+  .try h3 { margin-top: 0; }
+  .field { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
+  .field label { width: 210px; flex: 0 0 210px; font-family: Consolas, monospace; font-size: 12.5px; color: #374151; }
+  .field input { flex: 1; padding: 6px 8px; border: 1px solid var(--line); border-radius: 5px; font: inherit; }
+  textarea { width: 100%; min-height: 180px; padding: 10px; border: 1px solid var(--line); border-radius: 6px; font-family: Consolas, monospace; font-size: 12.5px; }
+  button { padding: 7px 14px; border: 1px solid var(--line); background: #fff; border-radius: 6px; cursor: pointer; font: inherit; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 10px; align-items: center; margin: 10px 0; }
+  .status { font: 600 12px Consolas, monospace; padding: 2px 8px; border-radius: 4px; }
+  .ok { background: #dafbe1; color: #116329; }
+  .bad { background: #ffebe9; color: #a40e26; }
+  .hint { color: var(--muted); font-size: 13px; }
+  .empty { color: var(--muted); margin-top: 80px; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>接口手册</h1>
+  <input id="q" placeholder="搜索：路径 / 名称 / 字段名" autocomplete="off" />
+  <span class="spacer"></span>
+  <span class="who" id="who">未登录</span>
+  <a href="/dev/console.html">联调控制台</a>
+</header>
+
+<div class="layout">
+  <aside id="nav"><div class="tag">加载中…</div></aside>
+  <main id="main"><div class="empty">从左侧选择一个接口</div></main>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var METHOD_ORDER = ["get", "post", "put", "patch", "delete"];
+  var TAG_ORDER = ["认证", "客户", "系统"];
+  var state = { ops: [], selected: null, docs: null, accessToken: "", refreshToken: "" };
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function loadSession() {
+    try {
+      var raw = sessionStorage.getItem("hm.session");
+      if (!raw) return;
+      var s = JSON.parse(raw);
+      state.accessToken = s.accessToken || "";
+      state.refreshToken = s.refreshToken || "";
+    } catch (e) { /* 忽略 */ }
+    renderWho();
+  }
+  function saveSession() {
+    sessionStorage.setItem("hm.session", JSON.stringify({
+      accessToken: state.accessToken, refreshToken: state.refreshToken, user: readUser()
+    }));
+  }
+  function readUser() {
+    try { var s = JSON.parse(sessionStorage.getItem("hm.session") || "{}"); return s.user || null; }
+    catch (e) { return null; }
+  }
+  function renderWho() {
+    var u = readUser();
+    $("who").textContent = u ? ((u.realName || u.username) + " · " + (u.roleCode || "")) : (state.accessToken ? "已登录" : "未登录");
+  }
+
+  /* ---------- schema 工具 ---------- */
+  function deref(schema) {
+    var guard = 0;
+    while (schema && schema.$ref && guard++ < 8) {
+      var name = schema.$ref.split("/").pop();
+      schema = state.docs.components.schemas[name];
+      if (schema && schema.description && !schema._named) { schema = Object.assign({}, schema); schema._name = name; }
+    }
+    return schema || {};
+  }
+  function shortName(schema) {
+    if (!schema) return "any";
+    if (schema.$ref) return schema.$ref.split("/").pop();
+    if (schema.type === "array") return "数组<" + shortName(schema.items) + ">";
+    if (schema.items) return "数组<" + shortName(schema.items) + ">";
+    if (schema.type === "object" || schema.properties || schema.additionalProperties) {
+      if (schema.additionalProperties) return "对象<string, " + shortName(schema.additionalProperties) + ">";
+      return "对象";
+    }
+    var t = schema.type || "any";
+    if (schema.format) t += "(" + schema.format + ")";
+    return t;
+  }
+  function rowsOf(schema, prefix, depth, out, requiredSet) {
+    var s = deref(schema);
+    if (!s || depth > 4) return out;
+    var props = s.properties || {};
+    var req = requiredSet || s.required || [];
+    Object.keys(props).forEach(function (k) {
+      var p = deref(props[k]);
+      var path = prefix ? prefix + "." + k : k;
+      var isReq = req.indexOf(k) !== -1;
+      var desc = p.description || "";
+      out.push({ path: path, type: shortName(p), required: isReq, desc: desc, depth: depth });
+      if (p.type === "object" || p.properties) rowsOf(p, path, depth + 1, out, null);
+      else if (p.type === "array" && p.items) {
+        var it = deref(p.items);
+        if (it && (it.type === "object" || it.properties)) rowsOf(it, path + "[]", depth + 1, out, null);
+      }
+    });
+    return out;
+  }
+  function exampleOf(schema, seen) {
+    var s = deref(schema);
+    if (!s) return null;
+    if (s.example !== undefined) return s.example;
+    if (s.enum && s.enum.length) return s.enum[0];
+    if (s.type === "array" || s.items) return [exampleOf(s.items, seen)];
+    if (s.type === "object" || s.properties) {
+      var obj = {};
+      var props = s.properties || {};
+      Object.keys(props).forEach(function (k) { obj[k] = exampleOf(props[k], seen); });
+      return obj;
+    }
+    if (s.type === "integer" || s.type === "number") return 0;
+    if (s.type === "boolean") return false;
+    if (s.format === "date-time") return "2026-01-01T08:00:00Z";
+    if (s.format === "date") return "2026-01-01";
+    return "";
+  }
+
+  /* ---------- 导航 ---------- */
+  function buildOps(docs) {
+    var ops = [];
+    var paths = docs.paths || {};
+    Object.keys(paths).sort().forEach(function (p) {
+      var item = paths[p];
+      METHOD_ORDER.forEach(function (m) {
+        if (!item[m]) return;
+        var op = item[m];
+        var tag = (op.tags && op.tags[0]) || "其他";
+        ops.push({ path: p, method: m, op: op, tag: tag, id: m + " " + p });
+      });
+    });
+    ops.sort(function (a, b) {
+      var ta = TAG_ORDER.indexOf(a.tag), tb = TAG_ORDER.indexOf(b.tag);
+      if (ta === -1) ta = 99; if (tb === -1) tb = 99;
+      if (ta !== tb) return ta - tb;
+      return (a.path + a.method).localeCompare(b.path + b.method);
+    });
+    return ops;
+  }
+  function renderNav(filter) {
+    var nav = $("nav");
+    var kw = (filter || "").trim().toLowerCase();
+    var html = "", lastTag = null;
+    state.ops.forEach(function (op) {
+      var text = (op.path + " " + (op.op.summary || "") + " " + op.method).toLowerCase();
+      if (kw && text.indexOf(kw) === -1) return;
+      if (op.tag !== lastTag) {
+        html += '<div class="tag">' + esc(op.tag) + "</div>";
+        lastTag = op.tag;
+      }
+      var on = state.selected && state.selected.id === op.id ? " on" : "";
+      html += '<div class="item' + on + '" data-id="' + esc(op.id) + '">' +
+        '<span class="m ' + op.method + '">' + op.method.toUpperCase() + "</span>" +
+        '<span><span class="p">' + esc(op.path) + '</span><br><span class="s">' +
+        esc(op.op.summary || op.op.operationId || "") + "</span></span>" +
+        "</div>";
+    });
+    nav.innerHTML = html || '<div class="tag">没有匹配的接口</div>';
+    Array.prototype.forEach.call(nav.querySelectorAll(".item"), function (el) {
+      el.addEventListener("click", function () {
+        state.selected = state.ops.filter(function (o) { return o.id === el.dataset.id; })[0];
+        try { history.replaceState(null, "", "#" + encodeURIComponent(state.selected.id)); } catch (e) { }
+        renderNav($("q").value);
+        renderDetail();
+      });
+    });
+  }
+
+  /* ---------- 详情 ---------- */
+  function paramTable(op) {
+    var ps = op.parameters || [];
+    if (!ps.length) return "";
+    var rows = ps.map(function (p) {
+      var s = deref(p.schema || {});
+      return "<tr><td><code>" + esc(p.name) + "</code></td><td>" + esc(p.in) + "</td><td>" +
+        esc(shortName(s)) + "</td><td>" + (p.required ? '<span class="req">是</span>' : '<span class="opt">否</span>') +
+        "</td><td>" + esc(p.description || s.description || "") + "</td></tr>";
+    }).join("");
+    return "<h3>参数</h3><table><tr><th>名称</th><th>位置</th><th>类型</th><th>必填</th><th>说明</th></tr>" + rows + "</table>";
+  }
+  function bodyTable(op) {
+    var rb = op.requestBody;
+    if (!rb) return "";
+    var content = rb.content || {};
+    var media = content["application/json"] || content[Object.keys(content)[0]];
+    if (!media) return "";
+    var schema = deref(media.schema);
+    var name = schema._name || (media.schema && media.schema.$ref ? media.schema.$ref.split("/").pop() : "");
+    var rows = rowsOf(schema, "", 0, [], null);
+    var body = rows.map(function (r) {
+      var pad = r.depth ? new Array(r.depth + 1).join("&nbsp;&nbsp;") : "";
+      return "<tr><td><code>" + pad + esc(r.path) + "</code></td><td>" + esc(r.type) + "</td><td>" +
+        (r.required ? '<span class="req">是</span>' : '<span class="opt">否</span>') + "</td><td>" + esc(r.desc) + "</td></tr>";
+    }).join("");
+    return "<h3>请求体" + (name ? ' · <code>' + esc(name) + "</code>" : "") + "</h3>" +
+      "<table><tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr>" + body + "</table>";
+  }
+  function responseBlock(op) {
+    var rs = op.responses || {};
+    var codes = Object.keys(rs);
+    if (!codes.length) return "";
+    var list = codes.map(function (c) {
+      var r = rs[c] || {};
+      var content = r.content || {};
+      var media = content["application/json"] || content[Object.keys(content)[0]];
+      var t = media ? shortName(deref(media.schema)) : "";
+      return "<tr><td><code>" + esc(c) + "</code></td><td>" + esc(r.description || "") + "</td><td>" +
+        (t ? "<code>" + esc(t) + "</code>" : "") + "</td></tr>";
+    }).join("");
+    var first = rs["200"] || rs["201"] || rs[Object.keys(rs)[0]];
+    var firstContent = (first && first.content) || {};
+    var sampleMedia = firstContent["application/json"] || firstContent[Object.keys(firstContent)[0]];
+    var sample = sampleMedia ? JSON.stringify(exampleOf(sampleMedia.schema, []), null, 2) : "";
+    return "<h3>响应</h3><table><tr><th>状态码</th><th>说明</th><th>响应体</th></tr>" + list + "</table>" +
+      (sample ? '<details><summary>响应示例（按 schema 生成）</summary><pre>' + esc(sample) + "</pre></details>" : "");
+  }
+
+  function tryBlock(op) {
+    var params = op.parameters || [];
+    var fields = params.map(function (p) {
+      return '<div class="field"><label>' + esc(p.name) + " <span class=\"hint\">(" + esc(p.in) + ")</span></label>" +
+        '<input data-p="' + esc(p.name) + '" data-in="' + esc(p.in) + '" placeholder="' + esc(p.description || "") + '" /></div>';
+    }).join("");
+    var rb = op.requestBody;
+    var bodyHtml = "";
+    var exampleText = "";
+    if (rb) {
+      var content = rb.content || {};
+      var media = content["application/json"] || content[Object.keys(content)[0]];
+      if (media) {
+        exampleText = JSON.stringify(exampleOf(media.schema, []), null, 2);
+        bodyHtml = '<h3>请求体 JSON</h3><textarea id="tryBody">' + esc(exampleText) + "</textarea>";
+      }
+    }
+    return '<div class="try"><h3>试一试</h3>' +
+      '<div class="hint">' + (state.accessToken ? "已复用联调控制台的登录态，请求会带上 Authorization。" : "当前未登录，需要登录态可先在<a href=\"/dev/console.html\">联调控制台</a>登录。") + "</div>" +
+      (fields || "") + bodyHtml +
+      '<div class="row"><button class="primary" id="btnSend">发送请求</button><span id="tryResult" class="hint"></span></div>' +
+      "<pre id=\"tryOut\" class=\"hidden\"></pre></div>";
+  }
+
+  function renderDetail() {
+    var op = state.selected;
+    if (!op) { $("main").innerHTML = '<div class="empty">从左侧选择一个接口</div>'; return; }
+    var o = op.op;
+    var html = "<h2>" + esc(o.summary || o.operationId || op.path) + "</h2>" +
+      '<div class="line"><span class="m ' + op.method + '">' + op.method.toUpperCase() + "</span> " + esc(op.path) + "</div>" +
+      (o.description ? '<p class="desc">' + esc(o.description) + "</p>" : "") +
+      paramTable(o) + bodyTable(o) + responseBlock(o) + tryBlock(o);
+    $("main").innerHTML = html;
+    window.scrollTo(0, 0);
+    var btn = $("btnSend");
+    if (btn) btn.addEventListener("click", function () { send(op); });
+  }
+
+  function fieldValue(name, where) {
+    var el = document.querySelector('.field input[data-p="' + name + '"][data-in="' + where + '"]');
+    return el ? el.value.trim() : "";
+  }
+
+  function buildUrl(op) {
+    var url = op.path.replace(/\{([^}]+)\}/g, function (_, name) {
+      return encodeURIComponent(fieldValue(name, "path") || "{" + name + "}");
+    });
+    var qs = [];
+    (op.op.parameters || []).forEach(function (p) {
+      if (p.in !== "query") return;
+      var v = fieldValue(p.name, "query");
+      if (v) qs.push(encodeURIComponent(p.name) + "=" + encodeURIComponent(v));
+    });
+    return url + (qs.length ? "?" + qs.join("&") : "");
+  }
+
+  async function send(op) {
+    var out = $("tryOut"), result = $("tryResult"), btn = $("btnSend");
+    result.textContent = "请求中…"; result.style.color = "#6b7280";
+    out.classList.add("hidden");
+    btn.disabled = true;
+    try {
+      var body;
+      var ta = $("tryBody");
+      if (ta && ta.value.trim()) body = ta.value;
+      var headers = { "Accept": "application/json" };
+      if (body) headers["Content-Type"] = "application/json; charset=utf-8";
+      if (state.accessToken) headers["Authorization"] = "Bearer " + state.accessToken;
+      var res = await doFetch(op.method.toUpperCase(), buildUrl(op), headers, body);
+      if (res.status === 401 && state.refreshToken) {
+        if (await tryRefresh()) {
+          if (state.accessToken) headers["Authorization"] = "Bearer " + state.accessToken;
+          res = await doFetch(op.method.toUpperCase(), buildUrl(op), headers, body);
+        }
+      }
+      var text = await res.text();
+      out.textContent = text;
+      out.classList.remove("hidden");
+      result.className = "status " + (res.ok ? "ok" : "bad");
+      result.textContent = "HTTP " + res.status;
+    } catch (e) {
+      result.className = "status bad";
+      result.textContent = "请求失败：" + e.message;
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  function doFetch(method, path, headers, body) {
+    return fetch(path, { method: method, headers: headers, body: body });
+  }
+  async function tryRefresh() {
+    try {
+      var r = await fetch("/api/v1/auth/refresh", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken: state.refreshToken })
+      });
+      var j = await r.json();
+      if (!r.ok || !j.data) return false;
+      state.accessToken = j.data.accessToken;
+      state.refreshToken = j.data.refreshToken;
+      saveSession();
+      return true;
+    } catch (e) { return false; }
+  }
+
+  /* ---------- 启动 ---------- */
+  async function boot() {
+    loadSession();
+    try {
+      var res = await fetch("/v3/api-docs");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      state.docs = await res.json();
+    } catch (e) {
+      $("nav").innerHTML = '<div class="tag">读取 /v3/api-docs 失败：' + esc(e.message) + "</div>";
+      return;
+    }
+    state.ops = buildOps(state.docs);
+    renderNav("");
+    var want = "";
+    try { want = decodeURIComponent((location.hash || "").replace(/^#/, "")); } catch (e) { want = ""; }
+    var matched = want ? state.ops.filter(function (o) { return o.id === want; })[0] : null;
+    if (state.ops.length) {
+      state.selected = matched || state.ops[0];
+      renderNav("");
+      renderDetail();
+    }
+    $("q").addEventListener("input", function () { renderNav(this.value); });
+  }
+  boot();
+})();
+</script>
+</body>
+</html>
