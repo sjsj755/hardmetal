@@ -1,0 +1,36 @@
+# Build output
+target/
+*.class
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Local secrets
+.env
+.env.local
+.env.*.local
+
+# Local scratch files
+.probe.txt
+.sandbox-test.txt
+
+# 本地设计文档，不入库（README 除外）
+/外贸业务流程调研报告.md
+/实施路线-后端先行.md
+/接口文档.md
+/硬质合金刀具出口管理系统-需求与设计.md
+/硬质合金刀具出口系统-前后端技术设计.md
+/硬质合金刀具出口系统-设计清单.md
+/doc/
