@@ -1,4 +1,4 @@
-# API smoke / regression for the Hardmetal export backend.
+﻿# API smoke / regression for the Hardmetal export backend.
 # PowerShell 5.1 compatible: uses curl.exe plus temp files because
 # System.Net.Http is not loaded and -SkipHttpErrorCheck does not exist in 5.1.
 #
@@ -19,13 +19,31 @@ $respFile = Join-Path $tmp "smoke-resp.json"
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $results = New-Object System.Collections.ArrayList
 
+# 读取仓库根目录的 .env（模板 .env.example），已存在的环境变量优先，不做覆盖。
+$repoRoot = Split-Path -Parent $PSScriptRoot
+$envFile = Join-Path $repoRoot ".env"
+if (Test-Path $envFile) {
+    foreach ($line in Get-Content $envFile -Encoding UTF8) {
+        $t = $line.Trim()
+        if (-not $t -or $t.StartsWith("#")) { continue }
+        $i = $t.IndexOf("=")
+        if ($i -lt 1) { continue }
+        $k = $t.Substring(0, $i).Trim()
+        $v = $t.Substring($i + 1).Trim()
+        if (-not (Test-Path "Env:$k")) { Set-Item -Path "Env:$k" -Value $v }
+    }
+}
+
 # Fixed test code; wipe leftovers from previous runs so the suite is repeatable.
 $testCode = "SMOKE-0001"
-$psql = "D:\pgsql\18.6\pgsql\bin\psql.exe"
+$psql = if ($env:PSQL_EXE) { $env:PSQL_EXE }
+        elseif (Get-Command psql -ErrorAction SilentlyContinue) { "psql" }
+        else { "D:\pgsql\18.6\pgsql\bin\psql.exe" }
+$dbUser = if ($env:DB_USER) { $env:DB_USER } else { "hardmetal" }
 if (Test-Path $psql) {
-    $env:PGPASSWORD = "CHANGE_ME"
-    & $psql -h 127.0.0.1 -p 5432 -U hardmetal -d trade -t -c "delete from customer_contact where customer_id in (select id from customer where customer_code like 'SMOKE-%');" 2>$null | Out-Null
-    & $psql -h 127.0.0.1 -p 5432 -U hardmetal -d trade -t -c "delete from customer where customer_code like 'SMOKE-%';" 2>$null | Out-Null
+    $env:PGPASSWORD = $env:DB_PASSWORD
+    & $psql -h 127.0.0.1 -p 5432 -U $dbUser -d trade -t -c "delete from customer_contact where customer_id in (select id from customer where customer_code like 'SMOKE-%');" 2>$null | Out-Null
+    & $psql -h 127.0.0.1 -p 5432 -U $dbUser -d trade -t -c "delete from customer where customer_code like 'SMOKE-%';" 2>$null | Out-Null
 }
 
 function Call-Api($method, $path, $body, $token) {
@@ -157,13 +175,11 @@ if ($cid -gt 0) {
     $forbidden = Call-Api "GET" "/customers/$cid" $null $salesToken
     Check "sales blocked on foreign customer" ($forbidden.Status -eq 403 -and $forbidden.Code -eq 40301) "status=$($forbidden.Status) code=$($forbidden.Code)"
 
-    $psql = "D:\pgsql\18.6\pgsql\bin\psql.exe"
     if (Test-Path $psql) {
-        $env:PGPASSWORD = "CHANGE_ME"
-        & $psql -h 127.0.0.1 -p 5432 -U hardmetal -d trade -v ON_ERROR_STOP=1 -t -c "insert into sales_order(order_no, customer_id, currency_code) values ('SO-SMOKE-1', $cid, 'USD');" | Out-Null
+        & $psql -h 127.0.0.1 -p 5432 -U $dbUser -d trade -v ON_ERROR_STOP=1 -t -c "insert into sales_order(order_no, customer_id, currency_code) values ('SO-SMOKE-1', $cid, 'USD');" | Out-Null
         $blocked = Call-Api "DELETE" "/customers/$cid" $null $access2
         Check "delete blocked by open order" ($blocked.Status -eq 409 -and $blocked.Code -eq 40904) "status=$($blocked.Status) code=$($blocked.Code)"
-        & $psql -h 127.0.0.1 -p 5432 -U hardmetal -d trade -t -c "delete from sales_order where order_no = 'SO-SMOKE-1';" | Out-Null
+        & $psql -h 127.0.0.1 -p 5432 -U $dbUser -d trade -t -c "delete from sales_order where order_no = 'SO-SMOKE-1';" | Out-Null
     }
 
     $deleted = Call-Api "DELETE" "/customers/$cid" $null $access2

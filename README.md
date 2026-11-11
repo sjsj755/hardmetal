@@ -63,6 +63,21 @@ interfaces/     REST 控制器与请求 / 响应对象
 
 两者均未注册为 Windows 服务，重启后需要手动启动。
 
+## 配置（.env）
+
+数据库密码、Redis 密码、JWT 密钥都从环境变量读取，仓库里只保留模板：
+
+```powershell
+Copy-Item .env.example .env
+```
+
+然后编辑 `.env`，至少填 `DB_PASSWORD`、`REDIS_PASSWORD`、`JWT_SECRET`（≥32 字节）。说明：
+
+- `.env` 已被 `.gitignore` 忽略，**不会入库**；`.env.example` 里全是占位值。
+- `application.yml` 通过 `spring.config.import` 依次尝试 `./.env` 与 `../.env`，从仓库根目录或 `backend` 目录启动都能读到。
+- 变量缺失时应用启动失败（`Could not resolve placeholder`），这是有意的——避免用默认密码误连生产库。
+- 已有同名系统环境变量优先，方便 CI/生产直接注入。
+
 ## 构建与运行
 
 先加载当前会话的 JDK 25 / Maven 3.9.16 环境（只影响当前 PowerShell，不改系统全局变量）：
@@ -103,7 +118,7 @@ cd backend
 - 联调控制台（登录 + 客户增删查，纯静态页）：`http://127.0.0.1:8080/dev/console.html`
 - 接口手册（按 tag 分组、可搜索、带字段说明与“试一试”，读 `/v3/api-docs` 渲染）：`http://127.0.0.1:8080/dev/api.html`
 
-演示账号：`admin / Admin@2026`（管理员），`sales1 / Admin@2026`（业务员，只能看自己名下客户）。
+演示账号：`admin / Admin@2026`（管理员），`sales1 / Admin@2026`（业务员，只能看自己名下客户）。这两个账号来自 Flyway 种子 `V2__seed.sql`，密码明文只写在文档里，**上线前务必改密或删除**。
 
 ## 接口冒烟测试
 
