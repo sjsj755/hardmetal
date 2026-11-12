@@ -1,0 +1,191 @@
+/* ------------------------------------------------------------------
+ * 设计令牌：浅色、低饱和。
+ * 只在这里定义颜色/圆角/阴影，组件内不出现散落的十六进制色值。
+ * ------------------------------------------------------------------ */
+:root {
+  --bg: #f6f8fb;
+  --surface: #ffffff;
+  --surface-2: #f4f7fb;
+  --border: #e6ebf2;
+  --border-strong: #d8e0ea;
+
+  --text: #1f2937;
+  --text-2: #64748b;
+  --text-3: #94a3b8;
+
+  --primary: #3f6fe4;
+  --primary-hover: #5b84ea;
+  --primary-soft: #eef3ff;
+
+  --success: #2fa37a;
+  --success-soft: #e9f7f1;
+  --warning: #c58a24;
+  --warning-soft: #fdf5e6;
+  --danger: #d95c5c;
+  --danger-soft: #fceeee;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px rgba(15, 23, 42, 0.05);
+
+  --font: 'Inter', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  --mono: 'SFMono-Regular', 'JetBrains Mono', Consolas, 'Liberation Mono', monospace;
+}
+
+/* Element Plus 主题变量（浅色） */
+:root {
+  --el-color-primary: #3f6fe4;
+  --el-color-primary-light-3: #7c9cf5;
+  --el-color-primary-light-5: #a9c0f8;
+  --el-color-primary-light-7: #cfddfb;
+  --el-color-primary-light-8: #e1e9fd;
+  --el-color-primary-light-9: #eef3ff;
+  --el-color-primary-dark-2: #335fc4;
+
+  --el-color-success: #2fa37a;
+  --el-color-warning: #c58a24;
+  --el-color-danger: #d95c5c;
+  --el-color-error: #d95c5c;
+
+  --el-text-color-primary: #1f2937;
+  --el-text-color-regular: #475569;
+  --el-text-color-secondary: #64748b;
+  --el-text-color-placeholder: #94a3b8;
+
+  --el-border-color: #e6ebf2;
+  --el-border-color-light: #edf1f7;
+  --el-border-color-lighter: #f1f5f9;
+  --el-fill-color-blank: #ffffff;
+  --el-fill-color-light: #f8fafc;
+  --el-fill-color-lighter: #fbfcfe;
+
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+
+  --el-font-family: var(--font);
+  --el-font-size-base: 14px;
+
+  --el-box-shadow-light: var(--shadow-md);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+/* 通用版式 */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.card-pad {
+  padding: 20px;
+}
+
+.muted {
+  color: var(--text-2);
+}
+
+.subtle {
+  color: var(--text-3);
+}
+
+.mono {
+  font-family: var(--mono);
+  font-size: 13px;
+  letter-spacing: 0.01em;
+}
+
+.section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.section-title h3 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* 数据表格统一留白 */
+.el-table {
+  --el-table-header-bg-color: #f8fafc;
+  --el-table-header-text-color: #475569;
+  --el-table-row-hover-bg-color: #f6f9ff;
+  --el-table-border-color: var(--border);
+  font-size: 13.5px;
+}
+
+.el-table th.el-table__cell {
+  font-weight: 600;
+}
+
+.clickable-row {
+  cursor: pointer;
+}
+
+.el-tag {
+  font-weight: 500;
+}
+
+/* 让分页条在卡片内右侧对齐 */
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+}
+
+@media (max-width: 900px) {
+  .card-pad {
+    padding: 16px;
+  }
+}
