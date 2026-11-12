@@ -32,6 +32,7 @@ public class AuthFilter extends OncePerRequestFilter {
             "/api/v1/auth/login",
             "/api/v1/auth/refresh",
             "/api/v1/health",
+            "/health",
             // 联调控制台是纯静态页，自身不含数据；上线前应删除 resources/static/dev。
             "/dev/",
             "/v3/api-docs",

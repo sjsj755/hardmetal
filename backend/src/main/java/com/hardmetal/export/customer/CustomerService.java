@@ -18,6 +18,10 @@ import com.hardmetal.export.meta.dict.DictService;
 import com.hardmetal.export.shared.exception.BizException;
 import com.hardmetal.export.shared.exception.ErrorCode;
 import com.hardmetal.export.shared.web.PageResult;
+import com.hardmetal.export.system.role.SysRole;
+import com.hardmetal.export.system.role.SysRoleMapper;
+import com.hardmetal.export.system.user.SysUser;
+import com.hardmetal.export.system.user.SysUserMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,21 +47,28 @@ import java.util.Set;
 public class CustomerService {
 
     private static final Set<String> LEVELS = Set.of("A", "B", "C", "D");
+    private static final Set<String> OWNER_ROLES = Set.of("ADMIN", "SALES");
     private static final int TIMELINE_SIZE = 50;
 
     private final CustomerMapper customerMapper;
     private final CustomerContactMapper contactMapper;
     private final JdbcTemplate jdbcTemplate;
     private final DictService dictService;
+    private final SysUserMapper sysUserMapper;
+    private final SysRoleMapper sysRoleMapper;
 
     public CustomerService(CustomerMapper customerMapper,
                            CustomerContactMapper contactMapper,
                            JdbcTemplate jdbcTemplate,
-                           DictService dictService) {
+                           DictService dictService,
+                           SysUserMapper sysUserMapper,
+                           SysRoleMapper sysRoleMapper) {
         this.customerMapper = customerMapper;
         this.contactMapper = contactMapper;
         this.jdbcTemplate = jdbcTemplate;
         this.dictService = dictService;
+        this.sysUserMapper = sysUserMapper;
+        this.sysRoleMapper = sysRoleMapper;
     }
 
     public PageResult<CustomerView> page(int page, int size, String type, String country, String level,
@@ -125,14 +136,15 @@ public class CustomerService {
         Customer entity = new Customer();
         entity.setCustomerCode(code);
         apply(entity, request);
-        if (entity.getOwnerUserId() == null) {
-            // 未指定归属业务员时落到当前登录用户，否则 SALES 创建后按归属过滤会看不到自己的客户
-            entity.setOwnerUserId(CurrentUserHolder.require().id());
-        }
+        // 归属：只有 ADMIN 能把客户指派给任意合法用户；SALES 只能归到自己名下
+        entity.setOwnerUserId(request.ownerId() == null
+                ? CurrentUserHolder.require().id()
+                : resolveOwner(request.ownerId()));
         OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
-        entity.setSanctionsStatus("clear");
+        // 尚无筛查流程，落“未筛查”，不能默认 clear 假装已合规筛查
+        entity.setSanctionsStatus("unreviewed");
         entity.setSensitiveCountry(false);
         entity.setIsDeleted(false);
         if (entity.getLanguage() == null) {
@@ -163,6 +175,9 @@ public class CustomerService {
             entity.setCustomerCode(code);
         }
         apply(entity, request);
+        if (request.ownerId() != null) {
+            entity.setOwnerUserId(resolveOwner(request.ownerId()));
+        }
         entity.setUpdatedAt(OffsetDateTime.now(ZoneOffset.UTC));
         customerMapper.updateById(entity);
     }
@@ -216,6 +231,8 @@ public class CustomerService {
 
     @Transactional
     public void deleteContact(long customerId, long contactId) {
+        // 先按数据权限校验客户归属，否则 SALES 知道 id 就能删他人客户下的联系人
+        requireCustomer(customerId);
         CustomerContact contact = contactMapper.selectById(contactId);
         if (contact == null || !Long.valueOf(customerId).equals(contact.getCustomerId())) {
             throw new BizException(ErrorCode.NOT_FOUND, "联系人不存在：" + contactId);
@@ -298,6 +315,28 @@ public class CustomerService {
         return "SALES".equals(user.roleCode());
     }
 
+    /**
+     * 校验并返回归属业务员 id：
+     * SALES 只能归到自己名下；目标用户必须存在、启用，且角色为 SALES 或 ADMIN。
+     * 这样既堵住 SALES 把客户转给别人的越权，也避免 ownerId 指向不存在/停用用户时抛 500。
+     */
+    private Long resolveOwner(Long ownerId) {
+        CurrentUser me = CurrentUserHolder.require();
+        if (isSales(me) && !me.id().equals(ownerId)) {
+            throw new BizException(ErrorCode.FORBIDDEN, "SALES 只能把客户归属到自己名下");
+        }
+        SysUser user = sysUserMapper.selectById(ownerId);
+        if (user == null || !Integer.valueOf(1).equals(user.getStatus())) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "归属业务员不存在或已停用：" + ownerId);
+        }
+        SysRole role = sysRoleMapper.selectById(user.getRoleId());
+        String roleCode = role == null ? null : role.getCode();
+        if (!OWNER_ROLES.contains(roleCode)) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "归属人必须是 SALES 或 ADMIN 角色，当前：" + roleCode);
+        }
+        return ownerId;
+    }
+
     private Customer requireCustomer(long id) {
         Customer customer = customerMapper.selectById(id);
         if (customer == null) {
@@ -327,11 +366,27 @@ public class CustomerService {
         if (r.creditDays() != null && (r.creditDays() < 0 || r.creditDays() > 365)) {
             throw new BizException(ErrorCode.PARAM_INVALID, "creditDays 必须在 0–365 之间");
         }
-        if (r.machiningMaterials() != null && r.machiningMaterials().size() > 16) {
-            throw new BizException(ErrorCode.PARAM_INVALID, "machiningMaterials 最多 16 项");
+        if (r.creditLimit() != null && r.creditLimit().signum() < 0) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "creditLimit 不能为负");
         }
-        if (r.machiningOps() != null && r.machiningOps().size() > 16) {
-            throw new BizException(ErrorCode.PARAM_INVALID, "machiningOps 最多 16 项");
+        if (r.machineBrands() != null && r.machineBrands().size() > 20) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "machineBrands 最多 20 项");
+        }
+        if (r.machiningMaterials() != null) {
+            if (r.machiningMaterials().size() > 16) {
+                throw new BizException(ErrorCode.PARAM_INVALID, "machiningMaterials 最多 16 项");
+            }
+            for (String material : r.machiningMaterials()) {
+                dictService.assertAllowed("machining_material", material, "machiningMaterials");
+            }
+        }
+        if (r.machiningOps() != null) {
+            if (r.machiningOps().size() > 16) {
+                throw new BizException(ErrorCode.PARAM_INVALID, "machiningOps 最多 16 项");
+            }
+            for (String op : r.machiningOps()) {
+                dictService.assertAllowed("machining_op", op, "machiningOps");
+            }
         }
     }
 
@@ -375,9 +430,6 @@ public class CustomerService {
         }
         if (r.creditLimit() != null) {
             e.setCreditLimit(r.creditLimit());
-        }
-        if (r.ownerId() != null) {
-            e.setOwnerUserId(r.ownerId());
         }
         if (r.remark() != null) {
             e.setRemark(r.remark());

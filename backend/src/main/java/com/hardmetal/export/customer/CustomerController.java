@@ -65,19 +65,19 @@ public class CustomerController {
         return ApiResponse.ok(customerService.get(id));
     }
 
-    @Operation(summary = "新建客户", description = "创建成功返回新客户 id 与最终编码；编码重复返回 40903。")
+    @Operation(summary = "新建客户", description = "创建成功返回新客户 id 与最终编码；编码重复返回 40903。SALES 只能把 ownerId 设为自己；制裁状态固定为 unreviewed（未实现筛查）。")
     @PostMapping
     @RequireRole({"ADMIN", "SALES"})
-    public ApiResponse<CreatedCustomer> create(@RequestBody CustomerUpsertRequest request) {
+    public ApiResponse<CreatedCustomer> create(@Valid @RequestBody CustomerUpsertRequest request) {
         return ApiResponse.ok(customerService.create(request));
     }
 
-    @Operation(summary = "更新客户", description = "部分更新：只传要改的字段，未传的字段保持不变。")
+    @Operation(summary = "更新客户", description = "部分更新：只传要改的字段，未传的字段保持不变。ownerId 仅 ADMIN 可改给任意合法用户，SALES 只能保持/设为自己。")
     @PutMapping("/{id}")
     @RequireRole({"ADMIN", "SALES"})
     public ApiResponse<Void> update(
             @Parameter(description = "客户 id") @PathVariable long id,
-            @RequestBody CustomerUpsertRequest request) {
+            @Valid @RequestBody CustomerUpsertRequest request) {
         customerService.update(id, request);
         return ApiResponse.ok();
     }

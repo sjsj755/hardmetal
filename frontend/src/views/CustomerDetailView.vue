@@ -172,6 +172,7 @@ function sanctionLabel(value?: string | null): string {
     return '未知'
   }
   const labels: Record<string, string> = {
+    unreviewed: '未筛查',
     clear: '正常',
     review: '待复核',
     blocked: '已阻断'

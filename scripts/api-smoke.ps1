@@ -18,6 +18,7 @@ $bodyFile = Join-Path $tmp "smoke-req.json"
 $respFile = Join-Path $tmp "smoke-resp.json"
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $results = New-Object System.Collections.ArrayList
+$rootBase = $Base -replace "/api/v1/?$", ""
 
 # 读取仓库根目录的 .env（模板 .env.example），已存在的环境变量优先，不做覆盖。
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -47,7 +48,8 @@ if (Test-Path $psql) {
 }
 
 function Call-Api($method, $path, $body, $token) {
-    $args = @("-s", "-X", $method, "$Base$path", "-H", "Accept: application/json",
+    $url = if ($path -match '^https?://') { $path } else { "$Base$path" }
+    $args = @("-s", "-X", $method, $url, "-H", "Accept: application/json",
         "-o", $respFile, "-w", "%{http_code}", "--max-time", "20")
     if ($null -ne $body) {
         [IO.File]::WriteAllText($bodyFile, ($body | ConvertTo-Json -Depth 6 -Compress), $utf8)
@@ -76,6 +78,10 @@ function Check($name, $condition, $detail) {
 # ---------- anonymous ----------
 $h = Call-Api "GET" "/health" $null $null
 Check "health" ($h.Status -eq 200 -and $h.Code -eq 0 -and $h.Data.status -eq "UP") "status=$($h.Status) code=$($h.Code)"
+
+$act = Call-Api "GET" "$rootBase/actuator/health" $null $null
+$actJson = $act.Raw | ConvertFrom-Json
+Check "actuator health public" ($act.Status -eq 200 -and $actJson.status -eq "UP" -and $actJson.components.redis.status -eq "UP") "status=$($act.Status) overall=$($actJson.status) redis=$($actJson.components.redis.status)"
 
 $wrong = Call-Api "POST" "/auth/login" @{ username = $AdminUser; password = "wrong-password" } $null
 Check "login wrong password" ($wrong.Status -eq 401 -and $wrong.Code -eq 40103) "status=$($wrong.Status) code=$($wrong.Code)"
@@ -146,6 +152,7 @@ if ($cid -gt 0) {
     $brands = @($detail.Data.machineBrands)
     $ops = @($detail.Data.machiningOps)
     Check "customer detail arrays" ($detail.Status -eq 200 -and $mats -contains "stainless" -and $brands -contains "DMG Mori" -and $ops -contains "turning") "status=$($detail.Status) materials=$($mats -join '|') ops=$($ops -join '|') brands=$($brands -join '|')"
+    Check "sanctions starts unreviewed" ($detail.Data.sanctionsStatus -eq "unreviewed") "sanctionsStatus=$($detail.Data.sanctionsStatus)"
 
     $updated = Call-Api "PUT" "/customers/$cid" @{ level = "B" } $access2
     $detail2 = Call-Api "GET" "/customers/$cid" $null $access2
@@ -164,6 +171,9 @@ if ($cid -gt 0) {
     $removed = Call-Api "DELETE" "/customers/$cid/contacts/$contactId" $null $access2
     Check "contact delete" ($removed.Status -eq 200 -and $removed.Code -eq 0) "status=$($removed.Status)"
 
+    $contact2 = Call-Api "POST" "/customers/$cid/contacts" @{ name = "Second Contact" } $access2
+    $contact2Id = $contact2.Data.id
+
     $salesLogin = Call-Api "POST" "/auth/login" @{ username = $SalesUser; password = $SalesPass } $null
     $salesToken = $salesLogin.Data.accessToken
     Check "sales login" ($salesLogin.Status -eq 200 -and $salesToken -and $salesLogin.Data.user.roleCode -eq "SALES") "status=$($salesLogin.Status) role=$($salesLogin.Data.user.roleCode)"
@@ -177,6 +187,24 @@ if ($cid -gt 0) {
 
     $salesDelete = Call-Api "DELETE" "/customers/$cid" $null $salesToken
     Check "sales cannot delete customer" ($salesDelete.Status -eq 403 -and $salesDelete.Code -eq 40301) "status=$($salesDelete.Status) code=$($salesDelete.Code)"
+
+    $salesOwner = Call-Api "POST" "/customers" @{ code = "SMOKE-OWNER"; nameCn = "Owner Test"; customerType = "end_user"; countryCode = "DE"; ownerId = 1 } $salesToken
+    Check "sales cannot reassign owner" ($salesOwner.Status -eq 403 -and $salesOwner.Code -eq 40301) "status=$($salesOwner.Status) code=$($salesOwner.Code)"
+
+    $salesContactDelete = Call-Api "DELETE" "/customers/$cid/contacts/$contact2Id" $null $salesToken
+    Check "sales cannot delete foreign contact" ($salesContactDelete.Status -eq 403 -and $salesContactDelete.Code -eq 40301) "status=$($salesContactDelete.Status) code=$($salesContactDelete.Code)"
+
+    $badCredit = Call-Api "POST" "/customers" @{ code = "SMOKE-BAD"; nameCn = "Bad"; customerType = "end_user"; countryCode = "DE"; creditLimit = -1 } $access2
+    Check "creditLimit negative rejected" ($badCredit.Status -eq 400 -and $badCredit.Code -eq 40001) "status=$($badCredit.Status) msg=$($badCredit.Msg)"
+
+    $badBrands = Call-Api "POST" "/customers" @{ code = "SMOKE-BAD"; nameCn = "Bad"; customerType = "end_user"; countryCode = "DE"; machineBrands = @(1..21 | ForEach-Object { "B$_" }) } $access2
+    Check "machineBrands over limit rejected" ($badBrands.Status -eq 400 -and $badBrands.Code -eq 40001) "status=$($badBrands.Status) msg=$($badBrands.Msg)"
+
+    $badMaterial = Call-Api "POST" "/customers" @{ code = "SMOKE-BAD"; nameCn = "Bad"; customerType = "end_user"; countryCode = "DE"; machiningMaterials = @("bogus") } $access2
+    Check "unknown machining material rejected" ($badMaterial.Status -eq 400 -and $badMaterial.Code -eq 40001) "status=$($badMaterial.Status) msg=$($badMaterial.Msg)"
+
+    $badLen = Call-Api "POST" "/customers" @{ code = "SMOKE-BAD"; nameCn = ("x" * 129); customerType = "end_user"; countryCode = "DE" } $access2
+    Check "nameCn length rejected" ($badLen.Status -eq 400 -and $badLen.Code -eq 40001) "status=$($badLen.Status) msg=$($badLen.Msg)"
 
     if (Test-Path $psql) {
         & $psql -h 127.0.0.1 -p 5432 -U $dbUser -d trade -v ON_ERROR_STOP=1 -t -c "insert into sales_order(order_no, customer_id, currency_code) values ('SO-SMOKE-1', $cid, 'USD');" | Out-Null

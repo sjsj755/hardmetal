@@ -25,7 +25,8 @@ public record CustomerDetailView(
         @Schema(description = "付款条款") String paymentTerms,
         @Schema(description = "账期天数") Integer creditDays,
         @Schema(description = "授信额度") BigDecimal creditLimit,
-        @Schema(description = "制裁筛查状态") String sanctionsStatus,
+        @Schema(description = "制裁筛查状态：unreviewed=未筛查（当前无筛查流程，P0 固定返回此值）/ clear / review / blocked")
+        String sanctionsStatus,
         @Schema(description = "联系人列表") List<ContactView> contacts,
         @Schema(description = "价格表摘要") PriceSummary priceSummary,
         @Schema(description = "最近报价，最多 5 条") List<RecentQuote> recentQuotes,
