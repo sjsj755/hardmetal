@@ -6,7 +6,11 @@ import java.util.Set;
 
 /**
  * 角色 → 权限点映射（《设计清单》H 权限矩阵的 P0 静态实现）。
- * <p>注意：这只是一份占位表，等 sys_role_perm 落地后由数据库驱动，
+ * <p>V4 迁移后系统只有两级角色：{@code ADMIN}（全量）与 {@code SALES}
+ * （本人客户范围 + 客户写入 + 新建报价）。历史角色代码（BOSS / SALES_MANAGER /
+ * DOC_SPECIALIST / FINANCE）不再映射，返回空集；若仍有旧角色用户，登录后
+ * 没有任何权限，属有意的收口行为。</p>
+ * <p>注意：这仍是一份占位表，等 sys_role_perm 落地后由数据库驱动，
  * 并通过 Redis {@code perm:<uid>}（TTL 10min）提供，改角色即时生效。</p>
  */
 public final class RolePerms {
@@ -25,17 +29,9 @@ public final class RolePerms {
             return EnumSet.noneOf(Perm.class);
         }
         return switch (roleCode) {
-            case "ADMIN", "BOSS" -> ADMIN_LIKE;
-            case "SALES_MANAGER" -> EnumSet.of(
-                    Perm.CUSTOMER_READ_ALL, Perm.CUSTOMER_WRITE, Perm.COST_READ,
-                    Perm.QUOTE_CREATE, Perm.QUOTE_PRICE_OVERRIDE, Perm.QUOTE_APPROVE,
-                    Perm.PRICE_LIST_WRITE, Perm.REFUND_READ);
+            case "ADMIN" -> ADMIN_LIKE;
             case "SALES" -> EnumSet.of(
                     Perm.CUSTOMER_READ_SELF, Perm.CUSTOMER_WRITE, Perm.QUOTE_CREATE);
-            case "DOC_SPECIALIST" -> EnumSet.of(
-                    Perm.CUSTOMER_READ_ALL, Perm.TARIFF_WRITE);
-            case "FINANCE" -> EnumSet.of(
-                    Perm.CUSTOMER_READ_ALL, Perm.COST_READ, Perm.REFUND_READ);
             default -> EnumSet.noneOf(Perm.class);
         };
     }

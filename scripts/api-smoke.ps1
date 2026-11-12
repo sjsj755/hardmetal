@@ -175,6 +175,9 @@ if ($cid -gt 0) {
     $forbidden = Call-Api "GET" "/customers/$cid" $null $salesToken
     Check "sales blocked on foreign customer" ($forbidden.Status -eq 403 -and $forbidden.Code -eq 40301) "status=$($forbidden.Status) code=$($forbidden.Code)"
 
+    $salesDelete = Call-Api "DELETE" "/customers/$cid" $null $salesToken
+    Check "sales cannot delete customer" ($salesDelete.Status -eq 403 -and $salesDelete.Code -eq 40301) "status=$($salesDelete.Status) code=$($salesDelete.Code)"
+
     if (Test-Path $psql) {
         & $psql -h 127.0.0.1 -p 5432 -U $dbUser -d trade -v ON_ERROR_STOP=1 -t -c "insert into sales_order(order_no, customer_id, currency_code) values ('SO-SMOKE-1', $cid, 'USD');" | Out-Null
         $blocked = Call-Api "DELETE" "/customers/$cid" $null $access2
@@ -189,6 +192,40 @@ if ($cid -gt 0) {
     Check "deleted customer gone" ($gone.Status -eq 404 -and $gone.Code -eq 40401) "status=$($gone.Status) code=$($gone.Code)"
 }
 
+# ---------- system / master data (12.2 - 12.7) ----------
+$hs = Call-Api "GET" "/hs-codes?q=8113" $null $access2
+Check "hs list by q" ($hs.Status -eq 200 -and @($hs.Data.items).Count -ge 1 -and @($hs.Data.items[0].declarationElements).Count -ge 1) "status=$($hs.Status) items=$(@($hs.Data.items).Count)"
+
+$hsPage = Call-Api "GET" "/hs-codes?chapter=8207&page=1&size=2" $null $access2
+Check "hs chapter paging" ($hsPage.Status -eq 200 -and @($hsPage.Data.items).Count -eq 2 -and $hsPage.Data.total -ge 2) "status=$($hsPage.Status) items=$(@($hsPage.Data.items).Count) total=$($hsPage.Data.total)"
+
+$hsBad = Call-Api "POST" "/hs-codes" @{ code = "123"; nameCn = "x" } $access2
+Check "hs bad code 40001" ($hsBad.Status -eq 400 -and $hsBad.Code -eq 40001) "status=$($hsBad.Status) code=$($hsBad.Code)"
+
+$hsForbidden = Call-Api "POST" "/hs-codes" @{ code = "8207888888"; nameCn = "x" } $salesToken
+Check "sales cannot write hs" ($hsForbidden.Status -eq 403 -and $hsForbidden.Code -eq 40301) "status=$($hsForbidden.Status) code=$($hsForbidden.Code)"
+
+$ports = Call-Api "GET" "/ports?q=Hamburg" $null $access2
+Check "port search" ($ports.Status -eq 200 -and @($ports.Data.items).Count -eq 1 -and $ports.Data.items[0].code -eq "DEHAM") "status=$($ports.Status) items=$(@($ports.Data.items).Count)"
+
+$portBad = Call-Api "GET" "/ports?type=dryport" $null $access2
+Check "port bad type 40001" ($portBad.Status -eq 400 -and $portBad.Code -eq 40001) "status=$($portBad.Status) code=$($portBad.Code)"
+
+$fx = Call-Api "GET" "/currencies" $null $access2
+Check "currency list" ($fx.Status -eq 200 -and $fx.Data.base -eq "CNY" -and @($fx.Data.items).Count -ge 5 -and @($fx.Data.items | Where-Object { $_.currency -eq "CNY" }).Count -eq 0) "status=$($fx.Status) items=$(@($fx.Data.items).Count)"
+
+$fxBad = Call-Api "GET" "/currencies?base=USD" $null $access2
+Check "currency base USD 40001" ($fxBad.Status -eq 400 -and $fxBad.Code -eq 40001) "status=$($fxBad.Status) code=$($fxBad.Code)"
+
+$mat = Call-Api "GET" "/raw-material-prices" $null $access2
+Check "material price list" ($mat.Status -eq 200 -and @($mat.Data.items).Count -ge 5) "status=$($mat.Status) items=$(@($mat.Data.items).Count)"
+
+$matCreated = Call-Api "POST" "/raw-material-prices" @{ material = "smoke_test"; priceCnyKg = "100.0000"; date = "2026-11-13"; source = "manual" } $access2
+$matDup = Call-Api "POST" "/raw-material-prices" @{ material = "smoke_test"; priceCnyKg = "101.0000"; date = "2026-11-13"; source = "manual" } $access2
+Check "material dup 40903" ($matCreated.Status -eq 200 -and $matDup.Status -eq 409 -and $matDup.Code -eq 40903) "first=$($matCreated.Status) dup=$($matDup.Status) code=$($matDup.Code)"
+if (Test-Path $psql) {
+    & $psql -h 127.0.0.1 -p 5432 -U $dbUser -d trade -t -c "delete from raw_material_price where material_type = 'smoke_test';" | Out-Null
+}
 # ---------- logout (last, revokes the token used above) ----------
 $logout = Call-Api "POST" "/auth/logout" @{ refreshToken = $refresh2 } $access2
 $afterLogout = Call-Api "GET" "/auth/me" $null $access2

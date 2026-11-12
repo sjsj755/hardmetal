@@ -21,7 +21,9 @@ public record CustomerUpsertRequest(
         @Schema(description = "客户英文名", example = "Hartmetall Müller GmbH")
         String nameEn,
 
-        @Schema(description = "客户类型，取字典 customer_type：end_user / distributor / agent / oem", example = "end_user")
+        @Schema(description = "客户类型，取字典 customer_type：distributor / end_user / trader / agent（无 oem）",
+                example = "end_user",
+                allowableValues = {"distributor", "end_user", "trader", "agent"})
         String customerType,
 
         @Schema(description = "客户等级 A/B/C/D", example = "A")

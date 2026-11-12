@@ -153,6 +153,7 @@
       var path = prefix ? prefix + "." + k : k;
       var isReq = req.indexOf(k) !== -1;
       var desc = p.description || "";
+      if (p.enum && p.enum.length) desc += (desc ? " " : "") + "可选值：" + p.enum.join(" / ");
       out.push({ path: path, type: shortName(p), required: isReq, desc: desc, depth: depth });
       if (p.type === "object" || p.properties) rowsOf(p, path, depth + 1, out, null);
       else if (p.type === "array" && p.items) {
@@ -237,9 +238,11 @@
     if (!ps.length) return "";
     var rows = ps.map(function (p) {
       var s = deref(p.schema || {});
+      var desc = p.description || s.description || "";
+      if (s.enum && s.enum.length) desc += (desc ? " " : "") + "可选值：" + s.enum.join(" / ");
       return "<tr><td><code>" + esc(p.name) + "</code></td><td>" + esc(p.in) + "</td><td>" +
         esc(shortName(s)) + "</td><td>" + (p.required ? '<span class="req">是</span>' : '<span class="opt">否</span>') +
-        "</td><td>" + esc(p.description || s.description || "") + "</td></tr>";
+        "</td><td>" + esc(desc) + "</td></tr>";
     }).join("");
     return "<h3>参数</h3><table><tr><th>名称</th><th>位置</th><th>类型</th><th>必填</th><th>说明</th></tr>" + rows + "</table>";
   }

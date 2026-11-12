@@ -14,6 +14,7 @@ import com.hardmetal.export.customer.dto.CustomerView;
 import com.hardmetal.export.customer.dto.PriceSummary;
 import com.hardmetal.export.customer.dto.RecentQuote;
 import com.hardmetal.export.customer.dto.TimelineItem;
+import com.hardmetal.export.meta.dict.DictService;
 import com.hardmetal.export.shared.exception.BizException;
 import com.hardmetal.export.shared.exception.ErrorCode;
 import com.hardmetal.export.shared.web.PageResult;
@@ -41,20 +42,22 @@ import java.util.Set;
 @Service
 public class CustomerService {
 
-    private static final Set<String> TYPES = Set.of("distributor", "end_user", "trader", "agent");
     private static final Set<String> LEVELS = Set.of("A", "B", "C", "D");
     private static final int TIMELINE_SIZE = 50;
 
     private final CustomerMapper customerMapper;
     private final CustomerContactMapper contactMapper;
     private final JdbcTemplate jdbcTemplate;
+    private final DictService dictService;
 
     public CustomerService(CustomerMapper customerMapper,
                            CustomerContactMapper contactMapper,
-                           JdbcTemplate jdbcTemplate) {
+                           JdbcTemplate jdbcTemplate,
+                           DictService dictService) {
         this.customerMapper = customerMapper;
         this.contactMapper = contactMapper;
         this.jdbcTemplate = jdbcTemplate;
+        this.dictService = dictService;
     }
 
     public PageResult<CustomerView> page(int page, int size, String type, String country, String level,
@@ -309,11 +312,8 @@ public class CustomerService {
 
     private void validate(CustomerUpsertRequest r, boolean creating) {
         if (creating || r.customerType() != null) {
-            if (!TYPES.contains(r.customerType())) {
-                throw new BizException(ErrorCode.PARAM_INVALID,
-                        "customerType 只允许 " + String.join("/", new java.util.TreeSet<>(TYPES))
-                                + "，当前：" + r.customerType());
-            }
+            // 取值以 sys_dict 为准，不再维护 Java 常量副本
+            dictService.assertAllowed("customer_type", r.customerType(), "customerType");
         }
         if (r.level() != null && !LEVELS.contains(r.level())) {
             throw new BizException(ErrorCode.PARAM_INVALID, "level 只允许 A/B/C/D，当前：" + r.level());

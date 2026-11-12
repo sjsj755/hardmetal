@@ -118,7 +118,7 @@ cd backend
 - 联调控制台（登录 + 客户增删查，纯静态页）：`http://127.0.0.1:8080/dev/console.html`
 - 接口手册（按 tag 分组、可搜索、带字段说明与“试一试”，读 `/v3/api-docs` 渲染）：`http://127.0.0.1:8080/dev/api.html`
 
-演示账号：`admin / Admin@2026`（管理员），`sales1 / Admin@2026`（业务员，只能看自己名下客户）。这两个账号来自 Flyway 种子 `V2__seed.sql`，密码明文只写在文档里，**上线前务必改密或删除**。
+演示账号：`admin / Admin@2026`（管理员），`sales1 / Admin@2026`（业务员，只能看自己名下客户）。`admin` 来自 `V2__seed.sql`，`sales1` 来自 `V6__seed_sales_user.sql`；角色由 `V4__two_roles.sql` 收敛为 `ADMIN` / `SALES` 两级。密码明文只写在文档里，**上线前务必改密或删除**。
 
 ## 接口冒烟测试
 
@@ -128,12 +128,19 @@ cd backend
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\api-smoke.ps1
 ```
 
-脚本会跑登录/刷新/登出、客户 CRUD、权限隔离、统一错误码等 29 项断言，默认打 `http://127.0.0.1:8081/api/v1`，
+脚本会跑登录/刷新/登出、客户 CRUD、权限隔离、HS/港口/汇率/原料价、统一错误码等 40 项断言，默认打 `http://127.0.0.1:8081/api/v1`，
 可用 `-Base http://127.0.0.1:8080/api/v1` 指向其他实例。
 
 ## 数据库迁移
 
 迁移脚本放在 `backend/src/main/resources/db/migration/`，命名为 `V{版本}__{描述}.sql`，由 Flyway 在启动时执行。
+
+## 枚举与字典（已知边界）
+
+- 枚举取值运行期以 `sys_dict` 为准，经 `GET /api/v1/meta/dict/{type}` 提供给前端；`customer_type` 已接入，服务端校验直接查字典，前端不再硬编码标签。
+- 新增/修改枚举值：**新迁移改 CHECK + 同事务写 `sys_dict`**，不可修改已应用的 V1–V3；重启后日志应出现“启动自检通过”。
+- `DictIntegrityChecker` 启动时比对 `ck_customer_type` 与字典，不一致直接拒绝启动（无降级开关）。
+- 已知未覆盖：自检目前仅 `customer_type`；`customer.level` 仍用静态 `LEVELS`；`console.html` 保留接口失败时的静态兜底；其余枚举待对应模块开发时接入。
 
 ## 约定
 

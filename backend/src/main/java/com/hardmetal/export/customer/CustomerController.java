@@ -67,14 +67,14 @@ public class CustomerController {
 
     @Operation(summary = "新建客户", description = "创建成功返回新客户 id 与最终编码；编码重复返回 40903。")
     @PostMapping
-    @RequireRole({"ADMIN", "SALES_MANAGER", "SALES"})
+    @RequireRole({"ADMIN", "SALES"})
     public ApiResponse<CreatedCustomer> create(@RequestBody CustomerUpsertRequest request) {
         return ApiResponse.ok(customerService.create(request));
     }
 
     @Operation(summary = "更新客户", description = "部分更新：只传要改的字段，未传的字段保持不变。")
     @PutMapping("/{id}")
-    @RequireRole({"ADMIN", "SALES_MANAGER", "SALES"})
+    @RequireRole({"ADMIN", "SALES"})
     public ApiResponse<Void> update(
             @Parameter(description = "客户 id") @PathVariable long id,
             @RequestBody CustomerUpsertRequest request) {
@@ -84,7 +84,7 @@ public class CustomerController {
 
     @Operation(summary = "删除客户", description = "软删除。存在未结报价或订单时返回 40904。")
     @DeleteMapping("/{id}")
-    @RequireRole({"ADMIN", "SALES_MANAGER"})
+    @RequireRole({"ADMIN"})
     public ApiResponse<Void> delete(
             @Parameter(description = "客户 id") @PathVariable long id) {
         customerService.delete(id);
@@ -114,7 +114,7 @@ public class CustomerController {
 
     @Operation(summary = "新增联系人", description = "契约外补充接口。")
     @PostMapping("/{id}/contacts")
-    @RequireRole({"ADMIN", "SALES_MANAGER", "SALES"})
+    @RequireRole({"ADMIN", "SALES"})
     public ApiResponse<ContactView> addContact(
             @Parameter(description = "客户 id") @PathVariable long id,
             @Valid @RequestBody ContactUpsertRequest request) {
@@ -123,7 +123,7 @@ public class CustomerController {
 
     @Operation(summary = "删除联系人", description = "契约外补充接口。")
     @DeleteMapping("/{id}/contacts/{contactId}")
-    @RequireRole({"ADMIN", "SALES_MANAGER", "SALES"})
+    @RequireRole({"ADMIN", "SALES"})
     public ApiResponse<Void> deleteContact(
             @Parameter(description = "客户 id") @PathVariable long id,
             @Parameter(description = "联系人 id") @PathVariable long contactId) {
