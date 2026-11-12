@@ -15,6 +15,8 @@
 ## 技术栈
 
 Vue 3.5 + TypeScript 5.4 + Vite 5.4 + Element Plus 2.14 + Pinia + vue-router 4 + axios。
+Element Plus 组件由 `unplugin-vue-components` 在模板编译时按需引入，页面组件按路由懒加载；
+`v-loading` 指令与 `ElMessage / ElMessageBox` 不经过模板解析，因此在 `src/main.ts` 显式安装并引样式。
 版本已在 `package.json` 中锁定为本次验证过的组合；样式为浅色低饱和设计令牌
 （`src/styles/index.css`），无额外 UI 依赖。
 
@@ -52,6 +54,10 @@ pnpm build       # typecheck + vite build
 > 本仓库已在 Node v26.13.0 / pnpm 12.16.1 下实际执行：`pnpm install`、`pnpm typecheck`、
 > `pnpm build` 全部通过（2026-11-13）。本次未启动后端，因此只做了静态类型与构建校验，
 > 未做真实接口联调。
+>
+> 构建体积（按需引入 + 路由懒加载后）：入口 JS 221 KB（gzip 88 KB），最大业务 chunk 148 KB，
+> 全部 JS 分块合计约 625 KB（改造前为单文件 1,180 KB）；CSS 合计约 162 KB（改造前 383 KB）。
+> 已无 `chunk > 500 kB` 警告。
 >
 > `pnpm-workspace.yaml` 中的 `onlyBuiltDependencies` 用于允许 esbuild / vue-demi 的安装脚本；
 > pnpm 12 已不再读取 `package.json` 的 `pnpm` 字段，删掉该文件会导致安装后 Vite 无法启动。
