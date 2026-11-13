@@ -37,6 +37,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -95,10 +96,13 @@ public class CustomerService {
         }
         IPage<Customer> result = customerMapper.selectPage(new Page<>(p, s), wrapper);
         Map<Long, OrderStat> stats = orderStats(result.getRecords().stream().map(Customer::getId).toList());
+        // 归属人名按本页 owner_user_id 批量查一次，避免每行一次查询（N+1）
+        Map<Long, String> ownerNames = ownerNames(result.getRecords());
         List<CustomerView> items = result.getRecords().stream()
                 .map(c -> new CustomerView(c.getId(), c.getCustomerCode(), c.getNameCn(), c.getNameEn(),
                         c.getCustomerType(), c.getGrade(), c.getCountryCode(),
                         listOf(c.getProcessingMaterials()), c.getBenchmarkBrand(),
+                        c.getOwnerUserId(), ownerNames.get(c.getOwnerUserId()),
                         stats.getOrDefault(c.getId(), OrderStat.EMPTY).count(),
                         stats.getOrDefault(c.getId(), OrderStat.EMPTY).lastAt()))
                 .toList();
@@ -107,6 +111,7 @@ public class CustomerService {
 
     public CustomerDetailView get(long id) {
         Customer c = requireCustomer(id);
+        String ownerName = ownerDisplayName(c.getOwnerUserId());
         List<ContactView> contacts = contactMapper.selectList(Wrappers.<CustomerContact>lambdaQuery()
                         .eq(CustomerContact::getCustomerId, id)
                         .orderByDesc(CustomerContact::getIsDecisionMaker)
@@ -117,8 +122,9 @@ public class CustomerService {
                 c.getCustomerType(), c.getGrade(), c.getCountryCode(), c.getCurrencyCode(),
                 listOf(c.getProcessingMaterials()), listOf(c.getProcesses()), listOf(c.getMachineBrands()),
                 c.getBenchmarkBrand(), c.getPaymentTerms(), c.getCreditDays(), c.getCreditLimit(),
+                c.getOwnerUserId(), ownerName,
                 c.getSanctionsStatus(), contacts, priceSummary(id), recentQuotes(id),
-                stat.count(), stat.lastAt());
+                stat.count(), stat.lastAt(), c.getRemark());
     }
 
     @Transactional
@@ -313,6 +319,34 @@ public class CustomerService {
 
     private boolean isSales(CurrentUser user) {
         return "SALES".equals(user.roleCode());
+    }
+
+    /** 本页 owner_user_id → 显示名；一次 selectBatchIds，避免 N+1。 */
+    private Map<Long, String> ownerNames(List<Customer> customers) {
+        List<Long> ids = customers.stream()
+                .map(Customer::getOwnerUserId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, String> names = new HashMap<>();
+        sysUserMapper.selectBatchIds(ids).forEach(u -> names.put(u.getId(), displayName(u)));
+        return names;
+    }
+
+    private String ownerDisplayName(Long ownerId) {
+        if (ownerId == null) {
+            return null;
+        }
+        SysUser user = sysUserMapper.selectById(ownerId);
+        return user == null ? null : displayName(user);
+    }
+
+    /** 归属显示名：优先真实姓名，空则用户名。 */
+    private static String displayName(SysUser user) {
+        return StringUtils.hasText(user.getRealName()) ? user.getRealName() : user.getUsername();
     }
 
     /**

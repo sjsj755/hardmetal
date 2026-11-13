@@ -128,7 +128,7 @@ cd backend
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\api-smoke.ps1
 ```
 
-脚本会跑登录/刷新/登出、客户 CRUD、权限隔离、HS/港口/汇率/原料价、统一错误码等 48 项断言，默认打 `http://127.0.0.1:8081/api/v1`，
+脚本会跑登录/刷新/登出、客户 CRUD、归属与备注、用户选项、权限隔离、HS/港口/汇率/原料价、统一错误码等 62 项断言，默认打 `http://127.0.0.1:8081/api/v1`，
 可用 `-Base http://127.0.0.1:8080/api/v1` 指向其他实例。
 
 ## 数据库迁移

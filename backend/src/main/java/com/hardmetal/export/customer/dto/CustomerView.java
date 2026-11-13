@@ -38,6 +38,12 @@ public record CustomerView(
         @Schema(description = "对标品牌")
         String benchmarkBrand,
 
+        @Schema(description = "归属用户 id；无归属时为 null", example = "2")
+        Long ownerId,
+
+        @Schema(description = "归属用户显示名：优先真实姓名，为空则用户名；无归属时为 null", example = "张三")
+        String ownerName,
+
         @Schema(description = "累计订单数")
         long orderCount,
 

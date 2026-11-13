@@ -25,11 +25,17 @@ public record CustomerDetailView(
         @Schema(description = "付款条款") String paymentTerms,
         @Schema(description = "账期天数") Integer creditDays,
         @Schema(description = "授信额度") BigDecimal creditLimit,
+        @Schema(description = "归属用户 id；无归属时为 null", example = "2")
+        Long ownerId,
+        @Schema(description = "归属用户显示名：优先真实姓名，为空则用户名；无归属时为 null", example = "张三")
+        String ownerName,
         @Schema(description = "制裁筛查状态：unreviewed=未筛查（当前无筛查流程，P0 固定返回此值）/ clear / review / blocked")
         String sanctionsStatus,
         @Schema(description = "联系人列表") List<ContactView> contacts,
         @Schema(description = "价格表摘要") PriceSummary priceSummary,
         @Schema(description = "最近报价，最多 5 条") List<RecentQuote> recentQuotes,
         @Schema(description = "累计订单数") long orderCount,
-        @Schema(description = "最近下单日期") java.time.LocalDate lastOrderAt) {
+        @Schema(description = "最近下单日期") java.time.LocalDate lastOrderAt,
+        @Schema(description = "备注，最多 2000 字；更新时传空串表示清空", example = "老客户，价格敏感")
+        String remark) {
 }

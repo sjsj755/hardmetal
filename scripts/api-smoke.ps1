@@ -106,6 +106,17 @@ Check "refresh token is one-shot" ($reuse.Status -eq 401 -and $reuse.Code -eq 40
 
 $me = Call-Api "GET" "/auth/me" $null $access2
 Check "me with access token" ($me.Status -eq 200 -and $me.Data.username -eq $AdminUser) "status=$($me.Status) user=$($me.Data.username)"
+$adminId = $login.Data.user.id
+
+# ---------- user options (12.8) ----------
+$opts = Call-Api "GET" "/users/options" $null $access2
+$optItems = @($opts.Data.items)
+$optSales = @($optItems | Where-Object { $_.username -eq $SalesUser })
+Check "user options admin" ($opts.Status -eq 200 -and $optSales.Count -eq 1 -and $optSales[0].roleCode -eq "SALES") "status=$($opts.Status) items=$($optItems.Count) role=$($optSales[0].roleCode)"
+Check "user options hide sensitive fields" (@($optItems[0].PSObject.Properties.Name) -notcontains "passwordHash" -and @($optItems[0].PSObject.Properties.Name) -notcontains "salt") "keys=$(@($optItems[0].PSObject.Properties.Name) -join ',')"
+
+$badRole = Call-Api "GET" "/users/options?role=BOSS" $null $access2
+Check "user options invalid role rejected" ($badRole.Status -eq 400 -and $badRole.Code -eq 40001) "status=$($badRole.Status) code=$($badRole.Code)"
 
 $asBearer = Call-Api "GET" "/auth/me" $null $refresh2
 Check "refresh token rejected as bearer" ($asBearer.Status -eq 401) "status=$($asBearer.Status) code=$($asBearer.Code)"
@@ -153,6 +164,8 @@ if ($cid -gt 0) {
     $ops = @($detail.Data.machiningOps)
     Check "customer detail arrays" ($detail.Status -eq 200 -and $mats -contains "stainless" -and $brands -contains "DMG Mori" -and $ops -contains "turning") "status=$($detail.Status) materials=$($mats -join '|') ops=$($ops -join '|') brands=$($brands -join '|')"
     Check "sanctions starts unreviewed" ($detail.Data.sanctionsStatus -eq "unreviewed") "sanctionsStatus=$($detail.Data.sanctionsStatus)"
+    $adminDisplay = if ($login.Data.user.realName) { $login.Data.user.realName } else { $login.Data.user.username }
+    Check "detail owner fields (default self)" ($detail.Data.ownerId -eq $adminId -and $detail.Data.ownerName -eq $adminDisplay) "ownerId=$($detail.Data.ownerId) ownerName=$($detail.Data.ownerName)"
 
     $updated = Call-Api "PUT" "/customers/$cid" @{ level = "B" } $access2
     $detail2 = Call-Api "GET" "/customers/$cid" $null $access2
@@ -193,6 +206,53 @@ if ($cid -gt 0) {
 
     $salesContactDelete = Call-Api "DELETE" "/customers/$cid/contacts/$contact2Id" $null $salesToken
     Check "sales cannot delete foreign contact" ($salesContactDelete.Status -eq 403 -and $salesContactDelete.Code -eq 40301) "status=$($salesContactDelete.Status) code=$($salesContactDelete.Code)"
+
+    $optsSalesForbidden = Call-Api "GET" "/users/options" $null $salesToken
+    Check "sales cannot list user options" ($optsSalesForbidden.Status -eq 403 -and $optsSalesForbidden.Code -eq 40301) "status=$($optsSalesForbidden.Status) code=$($optsSalesForbidden.Code)"
+
+    # ---------- owner assignment / reassignment ----------
+    $salesId = $salesLogin.Data.user.id
+    $salesDisplay = if ($salesLogin.Data.user.realName) { $salesLogin.Data.user.realName } else { $salesLogin.Data.user.username }
+    $ownedPayload = @{ code = "SMOKE-OWNED"; nameCn = "Owned By Sales"; customerType = "end_user"; countryCode = "DE"; ownerId = $salesId }
+    $owned = Call-Api "POST" "/customers" $ownedPayload $access2
+    $ownedId = $owned.Data.id
+    Check "admin assigns owner on create" ($owned.Status -eq 200 -and $ownedId -gt 0) "status=$($owned.Status) id=$ownedId"
+
+    $ownedDetail = Call-Api "GET" "/customers/$ownedId" $null $access2
+    Check "detail returns assigned owner" ($ownedDetail.Status -eq 200 -and $ownedDetail.Data.ownerId -eq $salesId -and $ownedDetail.Data.ownerName -eq $salesDisplay) "ownerId=$($ownedDetail.Data.ownerId) ownerName=$($ownedDetail.Data.ownerName)"
+
+    $salesList2 = Call-Api "GET" "/customers" $null $salesToken
+    $ownedVisible = @($salesList2.Data.items | Where-Object { $_.code -eq "SMOKE-OWNED" }).Count
+    Check "sales sees assigned customer" ($salesList2.Status -eq 200 -and $ownedVisible -eq 1) "status=$($salesList2.Status) visible=$ownedVisible"
+
+    $adminListOwned = Call-Api "GET" "/customers?keyword=SMOKE-OWNED" $null $access2
+    $ownedListItem = @($adminListOwned.Data.items)[0]
+    Check "admin list returns owner fields" ($adminListOwned.Status -eq 200 -and $ownedListItem.ownerId -eq $salesId -and $ownedListItem.ownerName -eq $salesDisplay) "ownerId=$($ownedListItem.ownerId) ownerName=$($ownedListItem.ownerName)"
+
+    $salesReassign = Call-Api "PUT" "/customers/$ownedId" @{ ownerId = $adminId } $salesToken
+    Check "sales cannot change owner" ($salesReassign.Status -eq 403 -and $salesReassign.Code -eq 40301) "status=$($salesReassign.Status) code=$($salesReassign.Code)"
+
+    $adminReassign = Call-Api "PUT" "/customers/$ownedId" @{ ownerId = $adminId } $access2
+    $reassignedDetail = Call-Api "GET" "/customers/$ownedId" $null $access2
+    Check "admin can reassign owner" ($adminReassign.Status -eq 200 -and $reassignedDetail.Data.ownerId -eq $adminId) "status=$($adminReassign.Status) ownerId=$($reassignedDetail.Data.ownerId)"
+
+    # ---------- remark ----------
+    $remarkText = "smoke remark"
+    $rmk = Call-Api "POST" "/customers" @{ code = "SMOKE-REMARK"; nameCn = "Remark Test"; customerType = "end_user"; countryCode = "DE"; remark = $remarkText } $access2
+    $rmkId = $rmk.Data.id
+    $rmkDetail = Call-Api "GET" "/customers/$rmkId" $null $access2
+    Check "remark create and read" ($rmk.Status -eq 200 -and $rmkDetail.Data.remark -eq $remarkText) "status=$($rmk.Status) remark=$($rmkDetail.Data.remark)"
+
+    $rmkList = Call-Api "GET" "/customers?keyword=SMOKE-REMARK" $null $access2
+    $rmkItem = @($rmkList.Data.items)[0]
+    Check "list omits remark" ($rmkList.Status -eq 200 -and @($rmkList.Data.items).Count -eq 1 -and -not ($rmkItem.PSObject.Properties.Name -contains "remark")) "keys=$($rmkItem.PSObject.Properties.Name -join ',')"
+
+    $cleared = Call-Api "PUT" "/customers/$rmkId" @{ remark = "" } $access2
+    $rmkDetail2 = Call-Api "GET" "/customers/$rmkId" $null $access2
+    Check "remark cleared by empty string" ($cleared.Status -eq 200 -and [string]::IsNullOrEmpty([string]$rmkDetail2.Data.remark)) "status=$($cleared.Status) remark=$($rmkDetail2.Data.remark)"
+
+    $null = Call-Api "DELETE" "/customers/$ownedId" $null $access2
+    $null = Call-Api "DELETE" "/customers/$rmkId" $null $access2
 
     $badCredit = Call-Api "POST" "/customers" @{ code = "SMOKE-BAD"; nameCn = "Bad"; customerType = "end_user"; countryCode = "DE"; creditLimit = -1 } $access2
     Check "creditLimit negative rejected" ($badCredit.Status -eq 400 -and $badCredit.Code -eq 40001) "status=$($badCredit.Status) msg=$($badCredit.Msg)"

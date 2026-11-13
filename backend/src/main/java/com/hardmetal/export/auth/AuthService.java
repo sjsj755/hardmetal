@@ -174,7 +174,6 @@ public class AuthService {
         String roleCode = role == null ? "UNKNOWN" : role.getCode();
         return new UserProfile(user.getId(), user.getUsername(), user.getRealName(),
                 roleCode,
-                role == null ? "未知角色" : role.getName(),
                 user.getDepartment(), user.getPhone(), user.getEmail(), user.getLastLoginAt(),
                 RolePerms.codes(roleCode));
     }

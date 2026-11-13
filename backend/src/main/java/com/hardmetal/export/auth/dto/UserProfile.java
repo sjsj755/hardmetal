@@ -14,7 +14,6 @@ public record UserProfile(
         @Schema(description = "登录名", example = "admin") String username,
         @Schema(description = "姓名", example = "系统管理员") String realName,
         @Schema(description = "角色代码", example = "ADMIN") String roleCode,
-        @Schema(description = "角色名称", example = "管理员") String roleName,
         @Schema(description = "部门", example = "信息部") String department,
         @Schema(description = "手机号") String phone,
         @Schema(description = "邮箱") String email,
