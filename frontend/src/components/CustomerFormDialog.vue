@@ -1,9 +1,17 @@
 <script setup lang="ts">
 import { computed, nextTick, reactive, ref, watch } from 'vue'
 import type { FormInstance, FormRules } from 'element-plus'
-import { ApiError } from '../api/http'
+import { ApiError, errorMessage } from '../api/http'
 import { createCustomer, updateCustomer } from '../api/customer'
-import type { CreatedCustomer, CustomerDetailView, CustomerUpsertPayload } from '../api/types'
+import { fetchUserOptions } from '../api/user'
+import type {
+  CreatedCustomer,
+  CustomerDetailView,
+  CustomerUpsertPayload,
+  UserOption
+} from '../api/types'
+import { ROLE_ADMIN, ROLE_SALES } from '../domain/roles'
+import { useAuthStore } from '../stores/auth'
 import { useDictStore } from '../stores/dict'
 import { MACHINING_MATERIALS, MACHINING_OPS } from '../domain/dicts'
 
@@ -22,6 +30,7 @@ interface FormModel {
   paymentTerms: string
   creditDays: number | undefined
   creditLimit: string
+  ownerId: number | null
   remark: string
 }
 
@@ -40,14 +49,72 @@ const emit = defineEmits<{
 }>()
 
 const dict = useDictStore()
+const auth = useAuthStore()
 const formRef = ref<FormInstance>()
 const form = reactive<FormModel>(emptyForm())
 const submitting = ref(false)
 const errorText = ref('')
 
+const ownerOptions = ref<UserOption[]>([])
+const ownerOptionsLoading = ref(false)
+const ownerOptionsError = ref('')
+
+const isAdmin = computed(() => auth.hasRole(ROLE_ADMIN))
+const isSales = computed(() => auth.hasRole(ROLE_SALES))
+const currentUserId = computed(() => auth.user?.id ?? null)
+
 const customerTypes = computed(() => dict.items('customer_type'))
 const grades = computed(() => dict.items('customer_grade'))
 const currencies = computed(() => dict.items('currency'))
+
+/** 编辑时若原归属不在 SALES 下拉里（例如早先默认归 admin），保留一个当前归属选项。 */
+const ownerChoices = computed<UserOption[]>(() => {
+  const list = [...ownerOptions.value]
+  const initial = props.initial
+  const ownerId = initial?.ownerId
+  if (props.mode === 'edit' && ownerId != null && !list.some((item) => item.id === ownerId)) {
+    list.unshift({
+      id: ownerId,
+      username: '',
+      realName: initial?.ownerName ?? '当前归属',
+      roleCode: ''
+    })
+  }
+  // SALES 不下拉用户列表，这里补一条“自己”，让禁用输入框能显示姓名而不是占位符。
+  if (isSales.value) {
+    const userId = currentUserId.value
+    if (userId != null && !list.some((item) => item.id === userId)) {
+      list.unshift({
+        id: userId,
+        username: auth.user?.username ?? '',
+        realName: auth.user?.realName ?? null,
+        roleCode: ROLE_SALES
+      })
+    }
+  }
+  return list
+})
+
+function ownerOptionLabel(option: UserOption): string {
+  return option.realName || option.username || `#${option.id}`
+}
+
+async function loadOwnerOptions(): Promise<void> {
+  if (!isAdmin.value) {
+    return
+  }
+  ownerOptionsLoading.value = true
+  ownerOptionsError.value = ''
+  try {
+    const result = await fetchUserOptions('SALES')
+    ownerOptions.value = result.items
+  } catch (error) {
+    ownerOptions.value = []
+    ownerOptionsError.value = errorMessage(error)
+  } finally {
+    ownerOptionsLoading.value = false
+  }
+}
 
 const rules: FormRules = {
   code: [
@@ -82,6 +149,7 @@ function emptyForm(): FormModel {
     paymentTerms: '',
     creditDays: undefined,
     creditLimit: '',
+    ownerId: null,
     remark: ''
   }
 }
@@ -102,7 +170,8 @@ function fillFrom(detail: CustomerDetailView): void {
     paymentTerms: detail.paymentTerms ?? '',
     creditDays: detail.creditDays ?? undefined,
     creditLimit: detail.creditLimit ?? '',
-    remark: ''
+    ownerId: detail.ownerId,
+    remark: detail.remark ?? ''
   })
 }
 
@@ -113,21 +182,29 @@ watch(
       return
     }
     errorText.value = ''
+    ownerOptions.value = []
+    ownerOptionsError.value = ''
     Object.assign(form, emptyForm())
     if (props.mode === 'edit' && props.initial) {
       fillFrom(props.initial)
     }
-    await Promise.all(
-      ['customer_type', 'customer_grade', 'currency'].map((type) =>
-        dict.load(type).catch(() => null)
-      )
+    // SALES 只能归到自己名下：固定当前登录员工，禁止改派。
+    if (isSales.value) {
+      form.ownerId = currentUserId.value
+    }
+    const tasks: Array<Promise<unknown>> = ['customer_type', 'customer_grade', 'currency'].map(
+      (type) => dict.load(type).catch(() => null)
     )
+    if (isAdmin.value) {
+      tasks.push(loadOwnerOptions())
+    }
+    await Promise.all(tasks)
     await nextTick()
     formRef.value?.clearValidate()
   }
 )
 
-/** 只发送有值的字段；空值不发，避免误清空后端字段。 */
+/** 只发送要改的字段；ownerId 为空表示保留原归属，remark 始终发送以支持清空。 */
 function buildPayload(): CustomerUpsertPayload {
   const payload: CustomerUpsertPayload = {
     code: form.code.trim(),
@@ -157,9 +234,11 @@ function buildPayload(): CustomerUpsertPayload {
   if (form.creditLimit.trim()) {
     payload.creditLimit = form.creditLimit.trim()
   }
-  if (form.remark.trim()) {
-    payload.remark = form.remark.trim()
+  if (form.ownerId != null) {
+    payload.ownerId = form.ownerId
   }
+  // 备注始终发送：空字符串用于清空；上限 2000 由输入框与后端共同约束。
+  payload.remark = form.remark
   return payload
 }
 
@@ -171,6 +250,14 @@ async function submit(): Promise<void> {
   const creditLimit = form.creditLimit.trim()
   if (creditLimit && !/^\d+(\.\d{1,4})?$/.test(creditLimit)) {
     errorText.value = '授信额度格式不正确：最多四位小数（对应 numeric(18,4)）'
+    return
+  }
+  if (isAdmin.value && props.mode === 'create' && form.ownerId == null) {
+    errorText.value = '请选择归属员工'
+    return
+  }
+  if (isSales.value && form.ownerId == null) {
+    errorText.value = '无法获取当前登录员工，请重新登录后再试'
     return
   }
   submitting.value = true
@@ -211,6 +298,28 @@ function onVisibleChange(value: boolean): void {
     @update:model-value="onVisibleChange"
   >
     <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+      <el-alert
+        v-if="isAdmin && ownerOptionsError"
+        :title="`归属员工加载失败：${ownerOptionsError}`"
+        type="error"
+        :closable="false"
+        show-icon
+        class="form-error"
+      >
+        <template #default>
+          <el-button link type="primary" @click="loadOwnerOptions">重新加载</el-button>
+        </template>
+      </el-alert>
+
+      <el-alert
+        v-else-if="isAdmin && !ownerOptionsLoading && mode === 'create' && ownerChoices.length === 0"
+        title="暂无启用的员工账号，无法指定归属"
+        type="warning"
+        :closable="false"
+        show-icon
+        class="form-error"
+      />
+
       <div class="form-grid">
         <el-form-item label="客户编码" prop="code">
           <el-input v-model="form.code" maxlength="32" placeholder="如 DE-0007" />
@@ -224,6 +333,32 @@ function onVisibleChange(value: boolean): void {
               :value="item.value"
             />
           </el-select>
+        </el-form-item>
+
+        <el-form-item
+          label="归属员工"
+          class="span-2"
+          :required="isAdmin && mode === 'create'"
+        >
+          <el-select
+            v-model="form.ownerId"
+            :disabled="!isAdmin"
+            :loading="ownerOptionsLoading"
+            :placeholder="isAdmin ? '请选择归属员工' : '当前登录员工'"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in ownerChoices"
+              :key="item.id"
+              :label="ownerOptionLabel(item)"
+              :value="item.id"
+            />
+          </el-select>
+          <p v-if="!isAdmin" class="field-hint">归属固定为当前登录员工，不可修改。</p>
+          <p v-else-if="mode === 'edit'" class="field-hint">
+            可改派给其他员工；不选择则保留原归属。
+          </p>
+          <p v-else class="field-hint">新建客户必须选择归属员工，创建后可在列表中按归属筛选。</p>
         </el-form-item>
 
         <el-form-item label="中文名称" prop="nameCn">
@@ -339,10 +474,10 @@ function onVisibleChange(value: boolean): void {
           <el-input
             v-model="form.remark"
             type="textarea"
-            :rows="2"
-            maxlength="500"
+            :rows="3"
+            maxlength="2000"
             show-word-limit
-            placeholder="内部备注，可选"
+            placeholder="内部备注，最多 2000 字；可清空"
           />
         </el-form-item>
       </div>
@@ -377,6 +512,13 @@ function onVisibleChange(value: boolean): void {
 
 .form-error {
   margin-top: 4px;
+}
+
+.field-hint {
+  margin: 4px 0 0;
+  color: var(--text-3);
+  font-size: 11.5px;
+  line-height: 1.6;
 }
 
 @media (max-width: 640px) {

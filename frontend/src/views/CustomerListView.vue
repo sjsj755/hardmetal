@@ -9,11 +9,12 @@ import DictLabel from '../components/DictLabel.vue'
 import CustomerFormDialog from '../components/CustomerFormDialog.vue'
 import { fetchCustomers } from '../api/customer'
 import { errorMessage } from '../api/http'
+import { fetchUserOptions } from '../api/user'
 import { ROLE_ADMIN, ROLE_SALES } from '../domain/roles'
 import { useAuthStore } from '../stores/auth'
 import { useDictStore } from '../stores/dict'
 import { formatDate } from '../utils/format'
-import type { CreatedCustomer, CustomerView } from '../api/types'
+import type { CreatedCustomer, CustomerView, UserOption } from '../api/types'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -23,7 +24,8 @@ const filters = reactive({
   keyword: '',
   type: '',
   level: '',
-  country: ''
+  country: '',
+  ownerId: null as number | null
 })
 
 const items = ref<CustomerView[]>([])
@@ -33,15 +35,45 @@ const size = ref(20)
 const loading = ref(false)
 const errorText = ref('')
 const createVisible = ref(false)
+const ownerOptions = ref<UserOption[]>([])
+const ownerOptionsLoading = ref(false)
+const ownerOptionsError = ref('')
 
-// 目标角色模型只有 ADMIN / SALES 两级；后端迁移完成前，旧角色
-// （BOSS/SALES_MANAGER/DOC_SPECIALIST/FINANCE）不放行，避免死按钮。
+// 目标角色模型只有 ADMIN / SALES 两级。归属筛选仅 ADMIN 可见；
+// SALES 由后端强制只看自己名下，不显示筛选，也不调用用户选项接口。
+const isAdmin = computed(() => auth.hasRole(ROLE_ADMIN))
 const canCreate = computed(
   () => auth.hasPerm('customer:write') && auth.hasRole(ROLE_ADMIN, ROLE_SALES)
 )
 const customerTypes = computed(() => dict.items('customer_type'))
 const grades = computed(() => dict.items('customer_grade'))
 const subtitle = computed(() => (loading.value ? '加载中…' : `共 ${total.value} 位客户`))
+
+function ownerOptionLabel(option: UserOption): string {
+  return option.realName || option.username || `#${option.id}`
+}
+
+/** el-select 清空时可能给空字符串，这里只接受数字。 */
+function selectedOwnerId(): number | undefined {
+  return typeof filters.ownerId === 'number' ? filters.ownerId : undefined
+}
+
+async function loadOwnerOptions(): Promise<void> {
+  if (!isAdmin.value) {
+    return
+  }
+  ownerOptionsLoading.value = true
+  ownerOptionsError.value = ''
+  try {
+    const result = await fetchUserOptions('SALES')
+    ownerOptions.value = result.items
+  } catch (error) {
+    ownerOptions.value = []
+    ownerOptionsError.value = errorMessage(error)
+  } finally {
+    ownerOptionsLoading.value = false
+  }
+}
 
 async function fetchList(): Promise<void> {
   loading.value = true
@@ -53,6 +85,7 @@ async function fetchList(): Promise<void> {
       type: filters.type || undefined,
       level: filters.level || undefined,
       country: filters.country.trim() || undefined,
+      ownerId: selectedOwnerId(),
       keyword: filters.keyword.trim() || undefined
     })
     items.value = result.items
@@ -72,9 +105,10 @@ async function fetchList(): Promise<void> {
 }
 
 onMounted(async () => {
-  await Promise.all(
-    ['customer_type', 'customer_grade'].map((type) => dict.load(type).catch(() => null))
-  )
+  await Promise.all([
+    ...['customer_type', 'customer_grade'].map((type) => dict.load(type).catch(() => null)),
+    isAdmin.value ? loadOwnerOptions() : Promise.resolve()
+  ])
   await fetchList()
 })
 
@@ -88,6 +122,7 @@ function reset(): void {
   filters.type = ''
   filters.level = ''
   filters.country = ''
+  filters.ownerId = null
   page.value = 1
   void fetchList()
 }
@@ -167,9 +202,38 @@ function handleCreated(created?: CreatedCustomer): void {
           placeholder="国家，如 DE"
           @keyup.enter="search"
         />
+        <el-select
+          v-if="isAdmin"
+          v-model="filters.ownerId"
+          class="filter-select"
+          clearable
+          filterable
+          :loading="ownerOptionsLoading"
+          placeholder="归属员工"
+        >
+          <el-option
+            v-for="item in ownerOptions"
+            :key="item.id"
+            :label="ownerOptionLabel(item)"
+            :value="item.id"
+          />
+        </el-select>
         <el-button type="primary" plain @click="search">查询</el-button>
         <el-button @click="reset">重置</el-button>
       </div>
+
+      <el-alert
+        v-if="isAdmin && ownerOptionsError"
+        :title="`归属员工选项加载失败：${ownerOptionsError}`"
+        type="error"
+        :closable="false"
+        show-icon
+        class="owner-options-alert"
+      >
+        <template #default>
+          <el-button link type="primary" @click="loadOwnerOptions">重新加载</el-button>
+        </template>
+      </el-alert>
     </section>
 
     <el-alert
@@ -217,6 +281,12 @@ function handleCreated(created?: CreatedCustomer): void {
         <el-table-column label="国家" width="76">
           <template #default="{ row }">
             <span class="mono">{{ row.countryCode }}</span>
+          </template>
+        </el-table-column>
+
+        <el-table-column label="归属员工" width="112">
+          <template #default="{ row }">
+            <span :class="row.ownerName ? '' : 'subtle'">{{ row.ownerName || '未分配' }}</span>
           </template>
         </el-table-column>
 
@@ -315,6 +385,10 @@ function handleCreated(created?: CreatedCustomer): void {
 
 .filter-country {
   width: 132px;
+}
+
+.owner-options-alert {
+  margin-top: 10px;
 }
 
 .customer-cell {

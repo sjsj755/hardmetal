@@ -349,6 +349,9 @@ watch(customerId, () => {
               <el-descriptions-item label="结算币种">
                 <span class="mono">{{ detail.currency || '—' }}</span>
               </el-descriptions-item>
+              <el-descriptions-item label="归属员工">
+                {{ detail.ownerName || '未分配' }}
+              </el-descriptions-item>
 
               <el-descriptions-item label="付款条款" :span="2">
                 {{ detail.paymentTerms || '—' }}
@@ -417,6 +420,15 @@ watch(customerId, () => {
                 <span v-else class="subtle">—</span>
               </el-descriptions-item>
             </el-descriptions>
+          </section>
+
+          <section class="card card-pad">
+            <div class="section-title">
+              <h3>内部备注</h3>
+              <span class="subtle">仅内部可见，最多 2000 字</span>
+            </div>
+            <p v-if="detail.remark" class="remark-text">{{ detail.remark }}</p>
+            <p v-else class="subtle">暂无备注</p>
           </section>
 
           <section class="card card-pad">
@@ -760,6 +772,15 @@ watch(customerId, () => {
   color: var(--text-3);
   font-size: 11.5px;
   line-height: 1.7;
+}
+
+.remark-text {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .contacts {

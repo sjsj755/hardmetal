@@ -6,7 +6,7 @@ import { useDictStore } from '../stores/dict'
 import { fetchCustomers } from '../api/customer'
 import { errorMessage } from '../api/http'
 import { CUSTOMER_TYPE_ORDER } from '../domain/dicts'
-import { ROLE_ADMIN, ROLE_SALES } from '../domain/roles'
+import { ROLE_ADMIN, ROLE_SALES, roleLabel } from '../domain/roles'
 import { formatDateTime, formatPercent } from '../utils/format'
 import PageHeader from '../components/PageHeader.vue'
 import StatCard from '../components/StatCard.vue'
@@ -255,7 +255,7 @@ onMounted(load)
       <section class="card card-pad">
         <div class="section-title">
           <h3>账号与权限</h3>
-          <el-tag size="small" type="info" effect="plain">{{ auth.user?.roleName || '—' }}</el-tag>
+          <el-tag size="small" type="info" effect="plain">{{ roleLabel(auth.user?.roleCode) || '—' }}</el-tag>
         </div>
         <dl class="account-list">
           <div>

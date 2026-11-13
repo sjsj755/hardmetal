@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { ArrowDown, House, SwitchButton, User } from '@element-plus/icons-vue'
 import { useAuthStore } from '../stores/auth'
+import { roleLabel } from '../domain/roles'
 import { initials } from '../utils/format'
 
 const auth = useAuthStore()
@@ -20,7 +21,7 @@ const pageTitle = computed(() =>
   typeof route.meta.title === 'string' ? route.meta.title : '工作台'
 )
 const avatarText = computed(() => initials(auth.user?.realName || auth.user?.username))
-const roleName = computed(() => auth.user?.roleName ?? '')
+const roleName = computed(() => (auth.user ? roleLabel(auth.user.roleCode) : '—'))
 
 async function handleCommand(command: string): Promise<void> {
   if (command !== 'logout') {

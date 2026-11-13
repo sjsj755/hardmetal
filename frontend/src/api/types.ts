@@ -66,6 +66,20 @@ export interface DictList {
   items: DictItem[]
 }
 
+/* ----------------------------- 用户 ----------------------------- */
+
+/** GET /api/v1/users/options 的元素；仅用于归属员工下拉。 */
+export interface UserOption {
+  id: number
+  username: string
+  realName: string | null
+  roleCode: string
+}
+
+export interface UserOptionsResult {
+  items: UserOption[]
+}
+
 /* ----------------------------- 客户 ----------------------------- */
 
 export interface CustomerView {
@@ -78,6 +92,8 @@ export interface CustomerView {
   countryCode: string
   machiningMaterials: string[]
   benchmarkBrand: string | null
+  ownerId: number | null
+  ownerName: string | null
   orderCount: number
   lastOrderAt: string | null
 }
@@ -123,6 +139,9 @@ export interface CustomerDetailView {
   paymentTerms: string | null
   creditDays: number | null
   creditLimit: string | null
+  ownerId: number | null
+  ownerName: string | null
+  remark: string | null
   sanctionsStatus: string | null
   contacts: ContactView[]
   priceSummary: PriceSummary

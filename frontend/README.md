@@ -31,8 +31,8 @@ pnpm dev
 # 打开 http://localhost:5173
 ```
 
-账号来自 `backend/src/main/resources/db/migration/V2__seed.sql` 的种子数据
-（管理员 `admin`，密码 `Admin@2026`；正式环境请立即修改）。
+账号来自后端迁移的种子数据（老板账号 `admin`、员工账号 `sales1`，密码均为
+`Admin@2026`；正式环境请立即修改）。V2 与 V6 迁移分别创建这两个账号。
 
 ### 为什么必须用代理
 
@@ -52,8 +52,10 @@ pnpm build       # typecheck + vite build
 ```
 
 > 本仓库已在 Node v26.13.0 / pnpm 12.16.1 下实际执行：`pnpm install`、`pnpm typecheck`、
-> `pnpm build` 全部通过（2026-11-13）。本次未启动后端，因此只做了静态类型与构建校验，
-> 未做真实接口联调。
+> `pnpm build` 全部通过（2026-11-13）。另外用 `scripts/api-smoke.ps1 -Base http://127.0.0.1:8083/api/v1`
+> 对新后端做了 API 联调，62 项全部通过（含 owner 分配、`sales1` 仅见自己客户、备注读写与清空）。
+> 另用无头 Chrome 做了 18 项页面断言（管理员/员工角色文案、归属列与筛选、详情备注回填与清空、
+> 员工表单归属锁定），全部通过；测试数据已删除。
 >
 > 构建体积（按需引入 + 路由懒加载后）：入口 JS 221 KB（gzip 88 KB），最大业务 chunk 148 KB，
 > 全部 JS 分块合计约 625 KB（改造前为单文件 1,180 KB）；CSS 合计约 162 KB（改造前 383 KB）。
@@ -100,10 +102,16 @@ frontend/
 5. 客户时间轴每页固定 50 条且不返回 `total`，页面以“返回条数是否等于 50”判断是否还有下一页。
 6. 报价、订单、产品、价格、关税、运价、合规等页面未实现；客户详情里的报价单不可点击跳转。
 7. 工作台看板（`/dashboard`）、待办、钨价、汇率等指标未接入。
+8. 归属与备注：本轮已按《接口文档》§12.8 与 3.1/3.3 接入了
+   `GET /users/options?role=SALES`（仅 ADMIN 调用）、列表/详情的 `ownerId/ownerName`
+   与详情 `remark`。后端 8083 实测通过（owner 分配与改派、`sales1` 仅见自己客户、
+   `remark=""` 可清空）。若连接的是旧版后端进程，会出现 `users/options` 404 或
+   `ownerName/remark` 为空，重启后端即可；前端会在归属下拉处显示加载失败与重试入口。
 
 ## 权限与按钮（目标两角色模型）
 
-- 目标模型只有两级：`ADMIN`（管理员，全部权限、可删除客户）与 `SALES`（业务员，仅自己名下客户，可新建/编辑客户、维护联系人，不可删除，看不到成本与审批）。
+- 目标模型只有两级：`ADMIN`（界面显示“老板”，全部权限、可删除客户、可分配归属）与 `SALES`（界面显示“员工”，仅自己名下客户，可新建/编辑客户、维护联系人，不可删除，看不到成本与审批）。
+- 角色显示统一走 `domain/roles.ts` 的 `roleLabel()`：`ADMIN → 老板`、`SALES → 员工`，未知 code 回退显示原 code；请求与权限判断仍只使用 `ADMIN/SALES`，绝不把中文传给后端。
 - 前端门禁：新建/编辑/维护联系人 = `customer:write` 且角色 ∈ {ADMIN, SALES}；删除客户 = 仅 ADMIN。
 - 后端已迁移为 2 角色（`V4__two_roles.sql`）：`ADMIN` / `SALES`；迁移说明见 [内部自用精简-影响与后端清单.md](../doc/内部自用精简-影响与后端清单.md)。
 - 旧角色（BOSS / SALES_MANAGER / DOC_SPECIALIST / FINANCE）在数据库中已删除，登录不再出现；前端保留的旧角色判断只用于过渡期兼容，可后续清理。
